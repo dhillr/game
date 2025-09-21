@@ -179,6 +179,9 @@ int main() {
 
     framebuffer_info fb = create_framebuffer(320, 180, framebuffer_prog);
 
+    int camera_x = 0;
+    int camera_y = 0;
+
     int player_x = 0;
     int player_y = 0;
 
@@ -223,6 +226,10 @@ int main() {
         hitbox_info[i] = polygon_vertex_info(hitbox_p, GL_STATIC_DRAW, 1);
     }
 
+    glptr cam_offset_uniform = glGetUniformLocation(prog, "camera_offset");
+    glptr cam_offset_uniform_p = glGetUniformLocation(player_prog, "camera_offset");
+    printf("%d\n", cam_offset_uniform_p);
+
     while (!glfwWindowShouldClose(window)) {
         current_time = glfwGetTime();
         delta = current_time - prev_time;
@@ -238,10 +245,20 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(player_prog);
+        glUniform2f(cam_offset_uniform_p, camera_x / 320.f, camera_y / 180.f);
 
         glBindTexture(GL_TEXTURE_2D, tex0.tex);
 
         update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, num);
+
+        if (player_x - camera_x > 300) {
+            camera_x += (int)(player_vx + 0.5);
+        }
+
+        if (player_x - camera_x < 0) {
+            camera_x += (int)(player_vx + 0.5);
+        }
+
         // printf("%f\n", fps);
 
         int diff_x = player_x - prev_x;
@@ -272,6 +289,7 @@ int main() {
         draw_vertex_info(info);
 
         glUseProgram(prog);
+        glUniform2f(cam_offset_uniform, camera_x / 320.f, camera_y / 180.f);
 
         GLuint offset_mod_uniform = glGetUniformLocation(prog, "offset_mod");
         
