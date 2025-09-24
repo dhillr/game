@@ -195,7 +195,7 @@ glptr shader_program(const char* vertex_shader_source, const char* fragment_shad
     return res;
 }
 
-vertex_info polygon_vertex_info(polygon p, GLenum mode, int textured) {
+vertex_info polygon_vertex_info(polygon p, GLenum mode, int textured, int center) {
     GLfloat verts[4*p.numPoints];
     GLuint indices[(p.numPoints-2)*3];
 
@@ -207,8 +207,13 @@ vertex_info polygon_vertex_info(polygon p, GLenum mode, int textured) {
     }
 
     for (int i = 0; i < p.numPoints; i++) {
-        verts[4*i] = p.points[i].x / (0.5 * GAME_WIDTH) - 1;
-        verts[4*i+1] = p.points[i].y / (0.5 * GAME_HEIGHT) - 1;
+        if (center) {
+            verts[4*i] = p.points[i].x / (0.5 * GAME_WIDTH);
+            verts[4*i+1] = p.points[i].y / (0.5 * GAME_HEIGHT);
+        } else {
+            verts[4*i] = p.points[i].x / (0.5 * GAME_WIDTH) - 1;
+            verts[4*i+1] = p.points[i].y / (0.5 * GAME_HEIGHT) - 1;
+        }
 
         // temp
         if (textured) {

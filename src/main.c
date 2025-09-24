@@ -3,7 +3,10 @@
 
 #include <wrapper.h>
 
+#define PI 3.141592653589793238462643383279502884197169399375105820974944592
+
 char* keys;
+float ss_size;
 
 int PLAYER_WIDTH = 8;
 int PLAYER_HEIGHT = 8;
@@ -12,6 +15,12 @@ typedef struct {
     int x, y;
     int width, height;
 } hitbox;
+
+typedef struct {
+    int x, y;
+    int width, height;
+    spritesheet_info ss_info;
+} sprite;
 
 int collide(hitbox a, hitbox b) {
     return (
@@ -48,6 +57,10 @@ char* load_shader(char* filepath) {
     fclose(f);
 
     return buf;
+}
+
+void setOffsetModUniform(glptr uniform, spritesheet_info ss_info) {
+    glUniform4f(uniform, (float)ss_info.x / ss_size, (float)ss_info.y / ss_size, (float)ss_info.width / ss_size, (float)ss_info.height / ss_size);
 }
 
 void on_key_event(GLFWwindow* window, int key, int scancode, int action, int mod_keys) {
@@ -124,6 +137,7 @@ int main() {
     const char* player_frag_shader = load_shader("src/shaders/frag_player.glsl");
 
     keys = malloc(256);
+    ss_size = SPRITESHEET_SIZE;
 
     for (int i = 0; i < 256; i++) {
         keys[i] = 0;
@@ -144,7 +158,7 @@ int main() {
 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     window = glfwCreateWindow(1280, 720, "gaem1!1 ! ! ! !1 1!1 !!!", NULL, NULL);
 
@@ -170,7 +184,7 @@ int main() {
     tri t = {0, 0, GAME_WIDTH, 0, 0, 100};
     quad player_quad = {0, 300, 100, 300, 150, 400, 50, 400};
 
-    vertex_info info = polygon_vertex_info(qtop(player_quad), GL_DYNAMIC_DRAW, 0);
+    vertex_info info = polygon_vertex_info(qtop(player_quad), GL_DYNAMIC_DRAW, 0, 0);
 
     texture tex0 = create_texture("src/images/xsheet.png", prog);
 
@@ -183,7 +197,7 @@ int main() {
     int camera_y = 0;
 
     int player_x = 0;
-    int player_y = 0;
+    int player_y = 72;
 
     int prev_x, prev_y;
 
@@ -192,28 +206,37 @@ int main() {
 
     uint32_t fall_time = 0;
 
-    size_t num = 5;
-    hitbox* hitboxes = malloc(num * sizeof(hitbox));
+    size_t hitbox_num = 5;
+    size_t sprite_num = 4;
 
-    hitboxes[0] = (hitbox){12, 0, 12, 12};
-    hitboxes[1] = (hitbox){37, 6, 48, 12};
-    hitboxes[2] = (hitbox){100, 0, 16, 16};
-    hitboxes[3] = (hitbox){150, 16, 16, 16};
-    hitboxes[4] = (hitbox){800, 400, 50, 50};
+    hitbox* hitboxes = malloc(hitbox_num * sizeof(hitbox));
+    sprite* sprites = malloc(sprite_num * sizeof(sprite));
 
-    spritesheet_info* hitbox_ss_info = malloc(num * sizeof(spritesheet_info));
+    sprite weapon_sprite = {0, 0, 16, 16, {0, 48, 16, 16}};
+
+    hitboxes[0] = (hitbox){0, 60, 1200, 12};
+    hitboxes[1] = (hitbox){0, 52, 1200, 16};
+    hitboxes[2] = (hitbox){0, 0, 1200, 52};
+    hitboxes[3] = (hitbox){128, 72, 16, 16};
+    hitboxes[4] = (hitbox){192, 88, 16, 16};
+
+    sprites[0] = (sprite){256, 72, 1200, 32, {32, 16, 16, 32}};
+    sprites[1] = (sprite){240, 88, 16, 16, {16, 16, 16, 16}};
+    sprites[2] = (sprite){240, 72, 16, 16, {32, 32, 16, 16}};
+    sprites[3] = (sprite){224, 72, 16, 16, {16, 32, 16, 16}};
+
+    spritesheet_info* hitbox_ss_info = malloc(hitbox_num * sizeof(spritesheet_info));
 
     hitbox_ss_info[0] = (spritesheet_info){0, 0, 16, 16};
     hitbox_ss_info[1] = (spritesheet_info){16, 0, 20, 16};
-    hitbox_ss_info[2] = (spritesheet_info){0, 16, 16, 16};
+    hitbox_ss_info[2] = (spritesheet_info){40, 0, 20, 16};
     hitbox_ss_info[3] = (spritesheet_info){0, 16, 16, 16};
-    hitbox_ss_info[4] = (spritesheet_info){0, 0, 16, 16};
+    hitbox_ss_info[4] = (spritesheet_info){0, 16, 16, 16};
 
-    vertex_info* hitbox_info = malloc(num * sizeof(vertex_info));
-
-    spritesheet_info s_info = {0, 0, 2, 16};
+    vertex_info* hitbox_info = malloc(hitbox_num * sizeof(vertex_info));
+    vertex_info* sprite_info = malloc(sprite_num * sizeof(vertex_info));
     
-    for (int i = 0; i < num; i++) {
+    for (int i = 0; i < hitbox_num; i++) {
         hitbox h = hitboxes[i];
 
         polygon hitbox_p = qtop((quad){
@@ -223,20 +246,51 @@ int main() {
             h.x + h.width, h.y
         });
 
-        hitbox_info[i] = polygon_vertex_info(hitbox_p, GL_STATIC_DRAW, 1);
+        hitbox_info[i] = polygon_vertex_info(hitbox_p, GL_STATIC_DRAW, 1, 0);
     }
+
+    for (int i = 0; i < sprite_num; i++) {
+        sprite s = sprites[i];
+
+        polygon sprite_p = qtop((quad){
+            s.x, s.y,
+            s.x, s.y + s.height,
+            s.x + s.width, s.y + s.height,
+            s.x + s.width, s.y
+        });
+
+        sprite_info[i] = polygon_vertex_info(sprite_p, GL_STATIC_DRAW, 1, 0);
+    }
+
+    polygon weapon_sprite_p = qtop((quad){
+        weapon_sprite.x, weapon_sprite.y,
+        weapon_sprite.x, weapon_sprite.y + weapon_sprite.height,
+        weapon_sprite.x + weapon_sprite.width, weapon_sprite.y + weapon_sprite.height,
+        weapon_sprite.x + weapon_sprite.width, weapon_sprite.y
+    });
+
+    vertex_info weapon_sprite_info = polygon_vertex_info(weapon_sprite_p, GL_DYNAMIC_DRAW, 1, 0);
 
     glptr cam_offset_uniform = glGetUniformLocation(prog, "camera_offset");
     glptr cam_offset_uniform_p = glGetUniformLocation(player_prog, "camera_offset");
     printf("%d\n", cam_offset_uniform_p);
+
+    float time = 0;
 
     while (!glfwWindowShouldClose(window)) {
         current_time = glfwGetTime();
         delta = current_time - prev_time;
         fps = 1.f / delta;
 
+        glptr offset_mod_uniform = glGetUniformLocation(prog, "offset_mod");
+        glptr rot_uniform = glGetUniformLocation(prog, "rotation_amount");
+        glptr offset_uniform = glGetUniformLocation(prog, "offset");
+
         prev_x = player_x;
         prev_y = player_y;
+
+        int PREV_GAME_WIDTH = GAME_WIDTH;
+        int PREV_GAME_HEIGHT = GAME_HEIGHT;
         
         glfwGetWindowSize(window, &GAME_WIDTH, &GAME_HEIGHT);
 
@@ -244,20 +298,27 @@ int main() {
         glClearColor(0.3f, 0.9f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glUseProgram(player_prog);
-        glUniform2f(cam_offset_uniform_p, camera_x / 320.f, camera_y / 180.f);
-
+        
         glBindTexture(GL_TEXTURE_2D, tex0.tex);
-
-        update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, num);
-
-        if (player_x - camera_x > 300) {
-            camera_x += (int)(player_vx + 0.5);
+        
+        glUseProgram(prog);
+        glUniform2f(cam_offset_uniform, camera_x / 640.f, camera_y / 360.f);
+        glUniform1f(rot_uniform, 0);
+        glUniform2f(offset_uniform, 0, 0);
+        
+        for (int i = 0; i < sprite_num; i++) {
+            setOffsetModUniform(offset_mod_uniform, sprites[i].ss_info);
+            draw_vertex_info(sprite_info[i]);
         }
 
-        if (player_x - camera_x < 0) {
-            camera_x += (int)(player_vx + 0.5);
+        glUseProgram(player_prog);
+        glUniform2f(cam_offset_uniform_p, camera_x / 640.f, camera_y / 360.f);
+        
+        if ((player_x - camera_x > 300 || player_x - camera_x < 20) && player_x >= 20) {
+            camera_x += (int)player_vx;
         }
+
+        update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, hitbox_num);
 
         // printf("%f\n", fps);
 
@@ -284,27 +345,47 @@ int main() {
             player_quad.y2 = prev_y;
         }
 
-        info = polygon_vertex_info(qtop(player_quad), GL_DYNAMIC_DRAW, 0);
+        info = polygon_vertex_info(qtop(player_quad), GL_DYNAMIC_DRAW, 0, 0);
 
         draw_vertex_info(info);
 
         glUseProgram(prog);
-        glUniform2f(cam_offset_uniform, camera_x / 320.f, camera_y / 180.f);
-
-        GLuint offset_mod_uniform = glGetUniformLocation(prog, "offset_mod");
+        glUniform2f(cam_offset_uniform, camera_x / 640.f, camera_y / 360.f);
         
-        for (int i = 0; i < num; i++) {
-            spritesheet_info ss_info = hitbox_ss_info[i];
-            float ss_size = SPRITESHEET_SIZE;
-
-            glUniform4f(offset_mod_uniform, (float)ss_info.x / ss_size, (float)ss_info.y / ss_size, (float)ss_info.width / ss_size, (float)ss_info.height / ss_size);
+        for (int i = 0; i < hitbox_num; i++) {
+            setOffsetModUniform(offset_mod_uniform, hitbox_ss_info[i]);
             draw_vertex_info(hitbox_info[i]);
         }
+
+        setOffsetModUniform(offset_mod_uniform, weapon_sprite.ss_info);
+
+        weapon_sprite.x = player_x + 13;
+        weapon_sprite.y = player_y + 4;
+
+        weapon_sprite_p = qtop((quad){
+            -weapon_sprite.width / 2, -weapon_sprite.height / 2,
+            -weapon_sprite.width / 2, weapon_sprite.height / 2,
+            weapon_sprite.width / 2, weapon_sprite.height / 2,
+            weapon_sprite.width / 2, -weapon_sprite.height / 2
+        });
+
+        weapon_sprite_info = polygon_vertex_info(weapon_sprite_p, GL_DYNAMIC_DRAW, 1, 1);
+
+        time += 0.01;
+        glUniform1f(rot_uniform, time);
+        glUniform2f(offset_uniform, weapon_sprite.x / 640.f - 1.f, weapon_sprite.y / 360.f - 1.f);
+
+        draw_vertex_info(weapon_sprite_info);
 
         draw_framebuffer_rect(fb);
         glfwSwapBuffers(window);
         glfwPollEvents();
         prev_time = current_time;
+
+        if (GAME_WIDTH != PREV_GAME_WIDTH || GAME_HEIGHT != PREV_GAME_HEIGHT) {
+            fb = create_framebuffer(GAME_WIDTH >> 2, GAME_HEIGHT >> 2, framebuffer_prog);
+            glfwMakeContextCurrent(window);
+        }
     }
 
     delete_buffers(info);
@@ -317,6 +398,8 @@ int main() {
     free(hitboxes);
     free(hitbox_info);
     free(hitbox_ss_info);
+    free(sprites);
+    free(sprite_info);
 
     glfwTerminate();
     return 0;
