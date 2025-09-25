@@ -6,6 +6,7 @@
 #define PI 3.141592653589793238462643383279502884197169399375105820974944592
 
 char* keys;
+char* mouse;
 float ss_size;
 
 int PLAYER_WIDTH = 8;
@@ -19,6 +20,7 @@ typedef struct {
 typedef struct {
     int x, y;
     int width, height;
+    float rotation;
     spritesheet_info ss_info;
 } sprite;
 
@@ -64,13 +66,19 @@ void setOffsetModUniform(glptr uniform, spritesheet_info ss_info) {
 }
 
 void on_key_event(GLFWwindow* window, int key, int scancode, int action, int mod_keys) {
-    if (action == GLFW_PRESS) {
+    if (action == GLFW_PRESS)
         keys[key] = 1;
-    }
 
-    if (action == GLFW_RELEASE) {
+    if (action == GLFW_RELEASE)
         keys[key] = 0;
-    }
+}
+
+void on_mouse_event(GLFWwindow* window, int button, int action, int mod_keys) {
+    if (action == GLFW_PRESS)
+        mouse[button] = 1;
+
+    if (action == GLFW_RELEASE)
+        mouse[button] = 0;
 }
 
 void update_player(int* old_x, int* old_y, float* vx, float* vy, uint32_t* fall_time, double dt, hitbox* hitboxes, size_t num_hitboxes) {
@@ -137,10 +145,15 @@ int main() {
     const char* player_frag_shader = load_shader("src/shaders/frag_player.glsl");
 
     keys = malloc(256);
+    mouse = malloc(9);
     ss_size = SPRITESHEET_SIZE;
 
     for (int i = 0; i < 256; i++) {
         keys[i] = 0;
+    }
+
+    for (int i = 0; i < 8; i++) {
+        mouse[i] = 0;
     }
 
     GLFWwindow* window;
@@ -171,7 +184,8 @@ int main() {
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, on_key_event);
-    // glfwSwapInterval(0); // to unlock fps
+    glfwSetMouseButtonCallback(window, on_mouse_event);
+    // glfwSwapInterval(4); // to unlock fps
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) return 1;
 
@@ -212,7 +226,7 @@ int main() {
     hitbox* hitboxes = malloc(hitbox_num * sizeof(hitbox));
     sprite* sprites = malloc(sprite_num * sizeof(sprite));
 
-    sprite weapon_sprite = {0, 0, 16, 16, {0, 48, 16, 16}};
+    sprite weapon_sprite = {0, 0, 16, 16, 0, {0, 48, 16, 16}};
 
     hitboxes[0] = (hitbox){0, 60, 1200, 12};
     hitboxes[1] = (hitbox){0, 52, 1200, 16};
@@ -220,10 +234,10 @@ int main() {
     hitboxes[3] = (hitbox){128, 72, 16, 16};
     hitboxes[4] = (hitbox){192, 88, 16, 16};
 
-    sprites[0] = (sprite){256, 72, 1200, 32, {32, 16, 16, 32}};
-    sprites[1] = (sprite){240, 88, 16, 16, {16, 16, 16, 16}};
-    sprites[2] = (sprite){240, 72, 16, 16, {32, 32, 16, 16}};
-    sprites[3] = (sprite){224, 72, 16, 16, {16, 32, 16, 16}};
+    sprites[0] = (sprite){256, 72, 1200, 32, 0, {32, 16, 16, 32}};
+    sprites[1] = (sprite){240, 88, 16, 16, 0, {16, 16, 16, 16}};
+    sprites[2] = (sprite){240, 72, 16, 16, 0, {32, 32, 16, 16}};
+    sprites[3] = (sprite){224, 72, 16, 16, 0, {16, 32, 16, 16}};
 
     spritesheet_info* hitbox_ss_info = malloc(hitbox_num * sizeof(spritesheet_info));
 
@@ -371,8 +385,12 @@ int main() {
 
         weapon_sprite_info = polygon_vertex_info(weapon_sprite_p, GL_DYNAMIC_DRAW, 1, 1);
 
-        time += 0.01;
-        glUniform1f(rot_uniform, time);
+        if (mouse[0])
+            weapon_sprite.rotation = 0.5 * PI;
+        else
+            weapon_sprite.rotation = 0;
+
+        glUniform1f(rot_uniform, weapon_sprite.rotation);
         glUniform2f(offset_uniform, weapon_sprite.x / 640.f - 1.f, weapon_sprite.y / 360.f - 1.f);
 
         draw_vertex_info(weapon_sprite_info);
@@ -395,6 +413,7 @@ int main() {
     free((void*)tri_vert_shader);
     free((void*)tri_frag_shader);
     free(keys);
+    free(mouse);
     free(hitboxes);
     free(hitbox_info);
     free(hitbox_ss_info);

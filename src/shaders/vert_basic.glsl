@@ -21,6 +21,6 @@ vec2 rotate(vec2 v, float theta) {
 out vec2 texCoord;
 
 void main() {
-    gl_Position = vec4(rotate(pos * vec2(aspect_ratio, 1), rotation_amount) / vec2(aspect_ratio, 1) - camera_offset + offset, 0, 1);
+    gl_Position = vec4(rotate(pos, rotation_amount) - camera_offset + offset, 0, 1);
     texCoord = st;
 }
