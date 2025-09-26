@@ -227,6 +227,9 @@ int main() {
     sprite* sprites = malloc(sprite_num * sizeof(sprite));
 
     sprite weapon_sprite = {0, 0, 16, 16, 0, {0, 48, 16, 16}};
+    float weapon_sprite_rot_target = 0;
+    float weapon_sprite_xoff_target = 0;
+    float weapon_sprite_xoff = 0;
 
     hitboxes[0] = (hitbox){0, 60, 1200, 12};
     hitboxes[1] = (hitbox){0, 52, 1200, 16};
@@ -289,16 +292,18 @@ int main() {
     glptr cam_offset_uniform_p = glGetUniformLocation(player_prog, "camera_offset");
     printf("%d\n", cam_offset_uniform_p);
 
+    glptr offset_mod_uniform = glGetUniformLocation(prog, "offset_mod");
+    glptr rot_uniform = glGetUniformLocation(prog, "rotation_amount");
+    glptr offset_uniform = glGetUniformLocation(prog, "offset");
+    glptr stretch_uniform = glGetUniformLocation(prog, "stretch");
+    glptr stretch_uniform_p = glGetUniformLocation(player_prog, "stretch");
+
     float time = 0;
 
     while (!glfwWindowShouldClose(window)) {
         current_time = glfwGetTime();
         delta = current_time - prev_time;
         fps = 1.f / delta;
-
-        glptr offset_mod_uniform = glGetUniformLocation(prog, "offset_mod");
-        glptr rot_uniform = glGetUniformLocation(prog, "rotation_amount");
-        glptr offset_uniform = glGetUniformLocation(prog, "offset");
 
         prev_x = player_x;
         prev_y = player_y;
@@ -311,7 +316,6 @@ int main() {
         glBindFramebuffer(GL_FRAMEBUFFER, fb.fbo);
         glClearColor(0.3f, 0.9f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-
         
         glBindTexture(GL_TEXTURE_2D, tex0.tex);
         
@@ -319,6 +323,7 @@ int main() {
         glUniform2f(cam_offset_uniform, camera_x / 640.f, camera_y / 360.f);
         glUniform1f(rot_uniform, 0);
         glUniform2f(offset_uniform, 0, 0);
+        glUniform1f(stretch_uniform, 1);
         
         for (int i = 0; i < sprite_num; i++) {
             setOffsetModUniform(offset_mod_uniform, sprites[i].ss_info);
@@ -327,6 +332,7 @@ int main() {
 
         glUseProgram(player_prog);
         glUniform2f(cam_offset_uniform_p, camera_x / 640.f, camera_y / 360.f);
+        glUniform1f(stretch_uniform_p, 1);
         
         if ((player_x - camera_x > 300 || player_x - camera_x < 20) && player_x >= 20) {
             camera_x += (int)player_vx;
@@ -373,7 +379,7 @@ int main() {
 
         setOffsetModUniform(offset_mod_uniform, weapon_sprite.ss_info);
 
-        weapon_sprite.x = player_x + 13;
+        weapon_sprite.x = player_x + 13 + weapon_sprite_xoff;
         weapon_sprite.y = player_y + 4;
 
         weapon_sprite_p = qtop((quad){
@@ -385,13 +391,25 @@ int main() {
 
         weapon_sprite_info = polygon_vertex_info(weapon_sprite_p, GL_DYNAMIC_DRAW, 1, 1);
 
-        if (mouse[0])
-            weapon_sprite.rotation = 0.5 * PI;
-        else
-            weapon_sprite.rotation = 0;
+        if (mouse[0]) {
+            if (player_vx > 0) {
+                weapon_sprite_rot_target = -0.5 * PI;
+                weapon_sprite_xoff_target = 8;
+            } else {
+                weapon_sprite_rot_target = 0.5 * PI;
+                weapon_sprite_xoff_target = -25;
+            }
+        } else {
+            weapon_sprite_rot_target = 0;
+            weapon_sprite_xoff_target = 0;
+        }
+
+        weapon_sprite.rotation += 0.125 * (weapon_sprite_rot_target - weapon_sprite.rotation);
+        weapon_sprite_xoff += 0.125 * (weapon_sprite_xoff_target - weapon_sprite_xoff);
 
         glUniform1f(rot_uniform, weapon_sprite.rotation);
         glUniform2f(offset_uniform, weapon_sprite.x / 640.f - 1.f, weapon_sprite.y / 360.f - 1.f);
+        glUniform1f(stretch_uniform, 16.f / 9.f);
 
         draw_vertex_info(weapon_sprite_info);
 

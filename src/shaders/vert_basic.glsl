@@ -6,8 +6,9 @@ layout (location = 1) in vec2 st;
 uniform vec2 camera_offset;
 uniform vec2 offset;
 uniform float rotation_amount;
+uniform float stretch;
 
-float aspect_ratio = 16 / 9;
+float aspect_ratio = 16. / 9.;
 
 mat2 rotation_matrix = mat2(
     cos(rotation_amount), -sin(rotation_amount),
@@ -21,6 +22,6 @@ vec2 rotate(vec2 v, float theta) {
 out vec2 texCoord;
 
 void main() {
-    gl_Position = vec4(rotate(pos, rotation_amount) - camera_offset + offset, 0, 1);
+    gl_Position = vec4((rotate(pos * vec2(stretch, 1), rotation_amount)) / vec2(stretch, 1) - camera_offset + offset, 0, 1);
     texCoord = st;
 }
