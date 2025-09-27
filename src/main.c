@@ -1,9 +1,15 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include <wrapper.h>
 
 #define PI 3.141592653589793238462643383279502884197169399375105820974944592
+
+#define LEFT    0b10000000
+#define RIGHT   0b01000000
+#define JUMP    0b00100000
+#define ATTACK  0b00010000
 
 char* keys;
 char* mouse;
@@ -11,6 +17,8 @@ float ss_size;
 
 int PLAYER_WIDTH = 8;
 int PLAYER_HEIGHT = 8;
+
+typedef unsigned char action;
 
 typedef struct {
     int x, y;
@@ -23,6 +31,14 @@ typedef struct {
     float rotation;
     spritesheet_info ss_info;
 } sprite;
+
+typedef struct {
+    int x, y;
+    int prev_x, prev_y;
+    float vx, vy;
+    uint32_t fall_time;
+    action event;
+} enemy;
 
 int collide(hitbox a, hitbox b) {
     return (
@@ -65,6 +81,57 @@ void setOffsetModUniform(glptr uniform, spritesheet_info ss_info) {
     glUniform4f(uniform, (float)ss_info.x / ss_size, (float)ss_info.y / ss_size, (float)ss_info.width / ss_size, (float)ss_info.height / ss_size);
 }
 
+quad rect(int x, int y, int width, int height) {
+    return (quad){
+        x, y,
+        x, y + height,
+        x + width, y + height,
+        x + width, y
+    };
+}
+
+void print_bin(char bin) {
+    for (int i = 7; i >= 0; i--) {
+        printf("%d", (bin & (1 << i)) >> i);
+    }
+    printf("\n");
+}
+
+void bind_action_bit(action* event, unsigned char bit, char value) {
+    if (value)
+        *event |= bit;
+    else
+        *event &= ~bit;
+}
+
+int chance(float rate) {
+    return rand() < rate * 32767;
+}
+
+void update_player_quad(quad* q, int player_x, int player_y, int prev_x, int prev_y, float player_vx) {
+    int diff_x = player_x - prev_x;
+
+    (*q).x1 = player_x;
+    (*q).y1 = player_y;
+    (*q).x2 = player_x + 8;
+    (*q).y2 = player_y;
+    (*q).x3 = player_x + diff_x + 8;
+    (*q).y3 = player_y + 8;
+    (*q).x4 = player_x + diff_x;
+    (*q).y4 = player_y + 8;
+
+    if ((int)(player_vx + 0.5) > 0) {
+        (*q).y1 = prev_y;
+        (*q).y4 = prev_y + 8;
+    } else if ((int)(player_vx + 0.5) < 0) {
+        (*q).y2 = prev_y;
+        (*q).y3 = prev_y + 8;
+    } else {
+        (*q).y1 = prev_y;
+        (*q).y2 = prev_y;
+    }
+}
+
 void on_key_event(GLFWwindow* window, int key, int scancode, int action, int mod_keys) {
     if (action == GLFW_PRESS)
         keys[key] = 1;
@@ -81,19 +148,19 @@ void on_mouse_event(GLFWwindow* window, int button, int action, int mod_keys) {
         mouse[button] = 0;
 }
 
-void update_player(int* old_x, int* old_y, float* vx, float* vy, uint32_t* fall_time, double dt, hitbox* hitboxes, size_t num_hitboxes) {
+void update_player(int* old_x, int* old_y, float* vx, float* vy, uint32_t* fall_time, double dt, hitbox* hitboxes, size_t num_hitboxes, action event) {
     float x = *old_x;
     float y = *old_y;
 
     (*fall_time)++;
 
-    if (keys[GLFW_KEY_A])
+    if (event & LEFT)
         *vx -= 0.125;
     
-    if (keys[GLFW_KEY_D])
+    if (event & RIGHT)
         *vx += 0.125;
 
-    if (keys[GLFW_KEY_W] && *fall_time <= 2)
+    if (event & JUMP && *fall_time <= 2)
         *vy = 2.5;
 
     *vx *= 0.95;
@@ -196,7 +263,7 @@ int main() {
     glptr framebuffer_prog = shader_program(framebuffer_vert_shader, framebuffer_frag_shader);
 
     tri t = {0, 0, GAME_WIDTH, 0, 0, 100};
-    quad player_quad = {0, 300, 100, 300, 150, 400, 50, 400};
+    quad player_quad;
 
     vertex_info info = polygon_vertex_info(qtop(player_quad), GL_DYNAMIC_DRAW, 0, 0);
 
@@ -220,6 +287,8 @@ int main() {
 
     uint32_t fall_time = 0;
 
+    action player_action = 0;
+
     size_t hitbox_num = 5;
     size_t sprite_num = 4;
 
@@ -230,6 +299,10 @@ int main() {
     float weapon_sprite_rot_target = 0;
     float weapon_sprite_xoff_target = 0;
     float weapon_sprite_xoff = 0;
+
+    enemy e = {100, 72, 100, 72, 0.f, 0.f, 0u};
+    quad e_quad = rect(e.x, e.y, 8, 8);
+    vertex_info e_info;
 
     hitboxes[0] = (hitbox){0, 60, 1200, 12};
     hitboxes[1] = (hitbox){0, 52, 1200, 16};
@@ -256,12 +329,7 @@ int main() {
     for (int i = 0; i < hitbox_num; i++) {
         hitbox h = hitboxes[i];
 
-        polygon hitbox_p = qtop((quad){
-            h.x, h.y,
-            h.x, h.y + h.height,
-            h.x + h.width, h.y + h.height,
-            h.x + h.width, h.y
-        });
+        polygon hitbox_p = qtop(rect(h.x, h.y, h.width, h.height));
 
         hitbox_info[i] = polygon_vertex_info(hitbox_p, GL_STATIC_DRAW, 1, 0);
     }
@@ -269,36 +337,24 @@ int main() {
     for (int i = 0; i < sprite_num; i++) {
         sprite s = sprites[i];
 
-        polygon sprite_p = qtop((quad){
-            s.x, s.y,
-            s.x, s.y + s.height,
-            s.x + s.width, s.y + s.height,
-            s.x + s.width, s.y
-        });
+        polygon sprite_p = qtop(rect(s.x, s.y, s.width, s.height));
 
         sprite_info[i] = polygon_vertex_info(sprite_p, GL_STATIC_DRAW, 1, 0);
     }
 
-    polygon weapon_sprite_p = qtop((quad){
-        weapon_sprite.x, weapon_sprite.y,
-        weapon_sprite.x, weapon_sprite.y + weapon_sprite.height,
-        weapon_sprite.x + weapon_sprite.width, weapon_sprite.y + weapon_sprite.height,
-        weapon_sprite.x + weapon_sprite.width, weapon_sprite.y
-    });
+    polygon weapon_sprite_p;
 
-    vertex_info weapon_sprite_info = polygon_vertex_info(weapon_sprite_p, GL_DYNAMIC_DRAW, 1, 0);
+    vertex_info weapon_sprite_info;
 
     glptr cam_offset_uniform = glGetUniformLocation(prog, "camera_offset");
     glptr cam_offset_uniform_p = glGetUniformLocation(player_prog, "camera_offset");
-    printf("%d\n", cam_offset_uniform_p);
 
     glptr offset_mod_uniform = glGetUniformLocation(prog, "offset_mod");
     glptr rot_uniform = glGetUniformLocation(prog, "rotation_amount");
     glptr offset_uniform = glGetUniformLocation(prog, "offset");
     glptr stretch_uniform = glGetUniformLocation(prog, "stretch");
     glptr stretch_uniform_p = glGetUniformLocation(player_prog, "stretch");
-
-    float time = 0;
+    glptr is_enemy_uniform_p = glGetUniformLocation(player_prog, "is_enemy");
 
     while (!glfwWindowShouldClose(window)) {
         current_time = glfwGetTime();
@@ -307,6 +363,9 @@ int main() {
 
         prev_x = player_x;
         prev_y = player_y;
+
+        e.prev_x = e.x;
+        e.prev_y = e.y;
 
         int PREV_GAME_WIDTH = GAME_WIDTH;
         int PREV_GAME_HEIGHT = GAME_HEIGHT;
@@ -333,41 +392,62 @@ int main() {
         glUseProgram(player_prog);
         glUniform2f(cam_offset_uniform_p, camera_x / 640.f, camera_y / 360.f);
         glUniform1f(stretch_uniform_p, 1);
+        glUniform1i(is_enemy_uniform_p, 0);
         
         if ((player_x - camera_x > 300 || player_x - camera_x < 20) && player_x >= 20) {
             camera_x += (int)player_vx;
         }
 
-        update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, hitbox_num);
+        bind_action_bit(&player_action, LEFT, keys[GLFW_KEY_A]);
+        bind_action_bit(&player_action, RIGHT, keys[GLFW_KEY_D]);
+        bind_action_bit(&player_action, JUMP, keys[GLFW_KEY_W]);
+        bind_action_bit(&player_action, ATTACK, mouse[0]);
+
+        if (chance(.1f))
+            e.event &= ~LEFT;
+
+        if (chance(.1f))
+            e.event &= ~RIGHT;
+
+        if (chance(.5f)) {
+            if (e.event & RIGHT)
+                e.event &= ~RIGHT;
+            
+            e.event |= LEFT;
+        }
+
+        if (chance(.5f)) {
+            if (e.event & LEFT)
+                e.event &= ~LEFT;
+            
+            e.event |= RIGHT;
+        }
+
+        update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, hitbox_num, player_action);
+        update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event);
+
+        // e.x = player_x + sin(weapon_sprite.rotation);
+        // e.y = player_y + cos(weapon_sprite.rotation);
+
+        if (collide((hitbox){player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT}, (hitbox){e.x, e.y, 8, 8})) {
+            e.x += 1000;
+        }
+
+        e_quad = rect(e.x, e.y, 8, 8);
 
         // printf("%f\n", fps);
 
-        int diff_x = player_x - prev_x;
-        int diff_y = player_y - prev_y;
-
-        player_quad.x1 = player_x;
-        player_quad.y1 = player_y;
-        player_quad.x2 = player_x + 8;
-        player_quad.y2 = player_y;
-        player_quad.x3 = prev_x + 8 + 2 * diff_x;
-        player_quad.y3 = player_y + 8;
-        player_quad.x4 = prev_x + 2 * diff_x;
-        player_quad.y4 = player_y + 8;
-
-        if ((int)(player_vx + 0.5) > 0) {
-            player_quad.y1 = prev_y;
-            player_quad.y4 = prev_y + 8;
-        } else if ((int)(player_vx + 0.5) < 0) {
-            player_quad.y2 = prev_y;
-            player_quad.y3 = prev_y + 8;
-        } else {
-            player_quad.y1 = prev_y;
-            player_quad.y2 = prev_y;
-        }
+        update_player_quad(&player_quad, player_x, player_y, prev_x, prev_y, player_vx);
+        update_player_quad(&e_quad, e.x, e.y, e.prev_x, e.prev_y, e.vx);
 
         info = polygon_vertex_info(qtop(player_quad), GL_DYNAMIC_DRAW, 0, 0);
 
+        e_info = polygon_vertex_info(qtop(e_quad), GL_DYNAMIC_DRAW, 0, 0);
+
         draw_vertex_info(info);
+
+        glUniform1i(is_enemy_uniform_p, 1);
+        draw_vertex_info(e_info);
 
         glUseProgram(prog);
         glUniform2f(cam_offset_uniform, camera_x / 640.f, camera_y / 360.f);
@@ -391,7 +471,7 @@ int main() {
 
         weapon_sprite_info = polygon_vertex_info(weapon_sprite_p, GL_DYNAMIC_DRAW, 1, 1);
 
-        if (mouse[0]) {
+        if (player_action & ATTACK) {
             if (player_vx > 0) {
                 weapon_sprite_rot_target = -0.5 * PI;
                 weapon_sprite_xoff_target = 8;
