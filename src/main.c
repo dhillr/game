@@ -23,6 +23,7 @@ typedef unsigned char action;
 typedef struct {
     int x, y;
     int width, height;
+    int is_ground;
 } hitbox;
 
 typedef struct {
@@ -37,6 +38,7 @@ typedef struct {
     int prev_x, prev_y;
     float vx, vy;
     uint32_t fall_time;
+    int health;
     action event;
 } enemy;
 
@@ -49,9 +51,27 @@ int collide(hitbox a, hitbox b) {
     );
 }
 
+int touch(hitbox a, hitbox b) {
+    return (
+        a.x <= b.x + b.width &&
+        a.x + a.width >= b.x &&
+        a.y <= b.y + b.height &&
+        a.y + a.height >= b.y
+    );
+}
+
 int collides(hitbox h, hitbox* hitboxes, size_t num_hitboxes) {
     for (int i = 0; i < num_hitboxes; i++) {
         if (collide(h, hitboxes[i]))
+            return 1;
+    }
+
+    return 0;
+}
+
+int touching(hitbox h, hitbox* hitboxes, size_t num_hitboxes) {
+    for (int i = 0; i < num_hitboxes; i++) {
+        if (touch(h, hitboxes[i]) && !hitboxes[i].is_ground)
             return 1;
     }
 
@@ -289,7 +309,7 @@ int main() {
 
     action player_action = 0;
 
-    size_t hitbox_num = 5;
+    size_t hitbox_num = 6;
     size_t sprite_num = 4;
 
     hitbox* hitboxes = malloc(hitbox_num * sizeof(hitbox));
@@ -300,15 +320,16 @@ int main() {
     float weapon_sprite_xoff_target = 0;
     float weapon_sprite_xoff = 0;
 
-    enemy e = {100, 72, 100, 72, 0.f, 0.f, 0u};
+    enemy e = {192, 72, 100, 72, 0.f, 0.f, 0u, 20};
     quad e_quad = rect(e.x, e.y, 8, 8);
     vertex_info e_info;
 
-    hitboxes[0] = (hitbox){0, 60, 1200, 12};
-    hitboxes[1] = (hitbox){0, 52, 1200, 16};
-    hitboxes[2] = (hitbox){0, 0, 1200, 52};
+    hitboxes[0] = (hitbox){0, 60, 1200, 12, 1};
+    hitboxes[1] = (hitbox){0, 52, 1200, 16, 1};
+    hitboxes[2] = (hitbox){0, 0, 1200, 52, 1};
     hitboxes[3] = (hitbox){128, 72, 16, 16};
     hitboxes[4] = (hitbox){192, 88, 16, 16};
+    hitboxes[5] = (hitbox){256, 72, 16, 16};
 
     sprites[0] = (sprite){256, 72, 1200, 32, 0, {32, 16, 16, 32}};
     sprites[1] = (sprite){240, 88, 16, 16, 0, {16, 16, 16, 16}};
@@ -322,6 +343,7 @@ int main() {
     hitbox_ss_info[2] = (spritesheet_info){40, 0, 20, 16};
     hitbox_ss_info[3] = (spritesheet_info){0, 16, 16, 16};
     hitbox_ss_info[4] = (spritesheet_info){0, 16, 16, 16};
+    hitbox_ss_info[5] = (spritesheet_info){0, 16, 16, 16};
 
     vertex_info* hitbox_info = malloc(hitbox_num * sizeof(vertex_info));
     vertex_info* sprite_info = malloc(sprite_num * sizeof(vertex_info));
@@ -355,6 +377,8 @@ int main() {
     glptr stretch_uniform = glGetUniformLocation(prog, "stretch");
     glptr stretch_uniform_p = glGetUniformLocation(player_prog, "stretch");
     glptr is_enemy_uniform_p = glGetUniformLocation(player_prog, "is_enemy");
+
+    e.event |= RIGHT;
 
     while (!glfwWindowShouldClose(window)) {
         current_time = glfwGetTime();
@@ -403,34 +427,51 @@ int main() {
         bind_action_bit(&player_action, JUMP, keys[GLFW_KEY_W]);
         bind_action_bit(&player_action, ATTACK, mouse[0]);
 
-        if (chance(.1f))
-            e.event &= ~LEFT;
+        if (chance(.002f))
+            e.event |= JUMP;
 
         if (chance(.1f))
-            e.event &= ~RIGHT;
+            e.event &= ~JUMP;
 
-        if (chance(.5f)) {
-            if (e.event & RIGHT)
-                e.event &= ~RIGHT;
-            
-            e.event |= LEFT;
+        if (touching((hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT}, hitboxes, hitbox_num)) {
+            unsigned char dir;
+            unsigned char inv_dir;
+
+            if (e.event & RIGHT) {
+                dir = RIGHT;
+                inv_dir = LEFT;
+            }
+
+            if (e.event & LEFT) {
+                dir = LEFT;
+                inv_dir = RIGHT;
+            }
+
+            e.event &= ~dir;
+            e.event |= inv_dir;
+
+            update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event);
         }
 
-        if (chance(.5f)) {
-            if (e.event & LEFT)
-                e.event &= ~LEFT;
-            
+        if (e.x < 0) {
+            e.event &= ~LEFT;
             e.event |= RIGHT;
         }
 
         update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, hitbox_num, player_action);
         update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event);
 
-        // e.x = player_x + sin(weapon_sprite.rotation);
-        // e.y = player_y + cos(weapon_sprite.rotation);
+        hitbox weapon_hitbox = {
+            (int)(player_x + 4. * sin(-weapon_sprite.rotation) + 8 + weapon_sprite_xoff),
+            (int)(player_y + 4. * cos(-weapon_sprite.rotation)),
+            8, 8
+        };
 
-        if (collide((hitbox){player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT}, (hitbox){e.x, e.y, 8, 8})) {
-            e.x += 1000;
+        // e.x = player_x + 4. * sin(-weapon_sprite.rotation) + 8 + weapon_sprite_xoff;
+        // e.y = player_y + 4. * cos(-weapon_sprite.rotation);
+
+        if (collide(weapon_hitbox, (hitbox){e.x, e.y, 8, 8})) {
+            e.health--;
         }
 
         e_quad = rect(e.x, e.y, 8, 8);
