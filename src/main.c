@@ -11,12 +11,15 @@
 #define JUMP    0b00100000
 #define ATTACK  0b00010000
 
+#define PLAYER_WIDTH 8
+#define PLAYER_HEIGHT 8
+
+#define PLAYER_SPEED 0.125f
+#define ENEMY_SPEED 0.07f
+
 char* keys;
 char* mouse;
 float ss_size;
-
-int PLAYER_WIDTH = 8;
-int PLAYER_HEIGHT = 8;
 
 typedef unsigned char action;
 
@@ -168,17 +171,17 @@ void on_mouse_event(GLFWwindow* window, int button, int action, int mod_keys) {
         mouse[button] = 0;
 }
 
-void update_player(int* old_x, int* old_y, float* vx, float* vy, uint32_t* fall_time, double dt, hitbox* hitboxes, size_t num_hitboxes, action event) {
+void update_player(int* old_x, int* old_y, float* vx, float* vy, uint32_t* fall_time, double dt, hitbox* hitboxes, size_t num_hitboxes, action event, float speed) {
     float x = *old_x;
     float y = *old_y;
 
     (*fall_time)++;
 
     if (event & LEFT)
-        *vx -= 0.125;
+        *vx -= speed;
     
     if (event & RIGHT)
-        *vx += 0.125;
+        *vx += speed;
 
     if (event & JUMP && *fall_time <= 2)
         *vy = 2.5;
@@ -434,32 +437,47 @@ int main() {
             e.event &= ~JUMP;
 
         if (touching((hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT}, hitboxes, hitbox_num)) {
-            unsigned char dir;
-            unsigned char inv_dir;
+            e.y++;
 
-            if (e.event & RIGHT) {
-                dir = RIGHT;
-                inv_dir = LEFT;
+            if (touching((hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT}, hitboxes, hitbox_num)) {
+                unsigned char dir;
+                unsigned char inv_dir;
+
+                if (e.event & RIGHT) {
+                    dir = RIGHT;
+                    inv_dir = LEFT;
+                }
+
+                if (e.event & LEFT) {
+                    dir = LEFT;
+                    inv_dir = RIGHT;
+                }
+
+                e.event &= ~dir;
+                e.event |= inv_dir;
+
+                e.vx = 0;
+
+                do {
+                    if (inv_dir == LEFT)
+                        e.x--;
+                    else
+                        e.x++;
+                    update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event, ENEMY_SPEED);
+                } while (touching((hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT}, hitboxes, hitbox_num));
             }
 
-            if (e.event & LEFT) {
-                dir = LEFT;
-                inv_dir = RIGHT;
-            }
-
-            e.event &= ~dir;
-            e.event |= inv_dir;
-
-            update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event);
+            e.y--;
         }
 
-        if (e.x < 0) {
+        if (e.x < 10) {
             e.event &= ~LEFT;
             e.event |= RIGHT;
+            e.x++;
         }
 
-        update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, hitbox_num, player_action);
-        update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event);
+        update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, hitbox_num, player_action, PLAYER_SPEED);
+        update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event, ENEMY_SPEED);
 
         hitbox weapon_hitbox = {
             (int)(player_x + 4. * sin(-weapon_sprite.rotation) + 8 + weapon_sprite_xoff),
