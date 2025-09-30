@@ -1,3 +1,6 @@
+#ifndef WRAPPER_FILE
+#define WRAPPER_FILE
+
 #include <stdlib.h>
 
 #include <glad/glad.h>
@@ -22,6 +25,10 @@ typedef struct {
 typedef struct {
     float x, y;
 } vec2;
+
+typedef struct {
+    float x, y, z;
+} vec3;
 
 typedef struct {
     vec2* points;
@@ -329,3 +336,5 @@ framebuffer_info create_framebuffer(int width, int height, glptr shader_prog) {
         .shader_prog=shader_prog
     };
 }
+
+#endif

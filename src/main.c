@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include <wrapper.h>
+#include <particles.h>
 
 #define PI 3.141592653589793238462643383279502884197169399375105820974944592
 
@@ -310,6 +311,8 @@ int main() {
 
     uint32_t fall_time = 0;
 
+    int player_health = 20;
+
     action player_action = 0;
 
     size_t hitbox_num = 6;
@@ -488,11 +491,18 @@ int main() {
         // e.x = player_x + 4. * sin(-weapon_sprite.rotation) + 8 + weapon_sprite_xoff;
         // e.y = player_y + 4. * cos(-weapon_sprite.rotation);
 
-        if (collide(weapon_hitbox, (hitbox){e.x, e.y, 8, 8})) {
+        if (collide(weapon_hitbox, (hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT})) {
             e.health--;
         }
 
-        e_quad = rect(e.x, e.y, 8, 8);
+        if (collide((hitbox){player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT}, (hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT})) {
+            player_health--;
+        }
+
+        if (player_health < 0)
+            break;
+
+        e_quad = rect(e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT);
 
         // printf("%f\n", fps);
 
