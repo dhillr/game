@@ -12,6 +12,8 @@ particle square_particle(int x, int y, vec3 col) {
     strcpy(frag_source, "#version 330 core\nout vec4 c;void main(){");
 
     glptr prog = shader_program("#version 330 core\nlayout(location=0)in vec2 pos;void main(){gl_Position=vec4(pos,0,1);}", frag_source);
+
+    free(frag_source);
 }
 
 void add_particle(particle** particles, size_t num_particles, particle p) {
