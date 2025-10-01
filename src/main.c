@@ -320,6 +320,7 @@ int main() {
 
     hitbox* hitboxes = malloc(hitbox_num * sizeof(hitbox));
     sprite* sprites = malloc(sprite_num * sizeof(sprite));
+    particle_list particles = PARTICLE_LIST_EMPTY;
 
     sprite weapon_sprite = {0, 0, 16, 16, 0, {0, 48, 16, 16}};
     float weapon_sprite_rot_target = 0;
@@ -407,6 +408,8 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
         
         glBindTexture(GL_TEXTURE_2D, tex0.tex);
+
+        draw_particles(particles, camera_x, camera_y);
         
         glUseProgram(prog);
         glUniform2f(cam_offset_uniform, camera_x / 640.f, camera_y / 360.f);
@@ -482,6 +485,8 @@ int main() {
         update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, hitbox_num, player_action, PLAYER_SPEED);
         update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event, ENEMY_SPEED);
 
+        update_particle_list(particles);
+
         hitbox weapon_hitbox = {
             (int)(player_x + 4. * sin(-weapon_sprite.rotation) + 8 + weapon_sprite_xoff),
             (int)(player_y + 4. * cos(-weapon_sprite.rotation)),
@@ -493,6 +498,7 @@ int main() {
 
         if (collide(weapon_hitbox, (hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT})) {
             e.health--;
+            add_particle(&particles, square_particle(e.x, e.y, 50, (vec3){0.f, 0.f, 0.f}));
         }
 
         if (collide((hitbox){player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT}, (hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT})) {
