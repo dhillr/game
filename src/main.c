@@ -91,7 +91,7 @@ char* load_shader(char* filepath) {
     size_t file_len = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    char* buf = malloc(file_len + 1);
+    char* buf = calloc(file_len + 1, 1);
 
     fread(buf, 1, file_len, f);
     buf[file_len] = '\0';
@@ -236,7 +236,7 @@ int main() {
     const char* player_frag_shader = load_shader("src/shaders/frag_player.glsl");
 
     keys = malloc(256);
-    mouse = malloc(9);
+    mouse = malloc(8);
     ss_size = SPRITESHEET_SIZE;
 
     for (int i = 0; i < 256; i++) {
@@ -276,7 +276,7 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, on_key_event);
     glfwSetMouseButtonCallback(window, on_mouse_event);
-    // glfwSwapInterval(4); // to unlock fps
+    // glfwSwapInterval(0); // to unlock fps
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) return 1;
 
@@ -429,6 +429,12 @@ int main() {
         
         if ((player_x - camera_x > 300 || player_x - camera_x < 20) && player_x >= 20) {
             camera_x += (int)player_vx;
+
+            while (player_x - camera_x > 300)
+                camera_x++;
+
+            while (player_x - camera_x < 20)
+                camera_x--;
         }
 
         bind_action_bit(&player_action, LEFT, keys[GLFW_KEY_A]);
@@ -485,7 +491,7 @@ int main() {
         update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, hitbox_num, player_action, PLAYER_SPEED);
         update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event, ENEMY_SPEED);
 
-        update_particle_list(particles);
+        update_particle_list(&particles, delta);
 
         hitbox weapon_hitbox = {
             (int)(player_x + 4. * sin(-weapon_sprite.rotation) + 8 + weapon_sprite_xoff),
@@ -498,15 +504,19 @@ int main() {
 
         if (collide(weapon_hitbox, (hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT})) {
             e.health--;
-            add_particle(&particles, square_particle(e.x, e.y, 50, (vec3){0.f, 0.f, 0.f}));
+
+            particle p = square_particle(e.x, e.y, 4, (vec3){0.f, 0.f, 0.f}, 500);
+            p.vy = 2;
+
+            add_particle(&particles, p);
         }
 
         if (collide((hitbox){player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT}, (hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT})) {
             player_health--;
         }
 
-        if (player_health < 0)
-            break;
+        // if (player_health < 0)
+        //     break;
 
         e_quad = rect(e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT);
 
