@@ -63,9 +63,11 @@ void update_particle_list(particle_list* particles, float dt) {
         return;
 
     particle* p = particles->head;
+    particle* next = p->__list_next;
 
-    while (p->__list_next) {
+    while (next) {
         p = p->__list_next;
+        next = p->__list_next;
         
         p->x += (int)(p->vx + 0.5);
         p->y += (int)(p->vy + 0.5);
