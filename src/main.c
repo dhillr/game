@@ -15,6 +15,9 @@
 #define PLAYER_WIDTH 8
 #define PLAYER_HEIGHT 8
 
+#define PLAYER_DAMAGE_COOLDOWN 500
+#define ENEMY_DAMAGE_COOLDOWN 300
+
 #define PLAYER_SPEED 0.125f
 #define ENEMY_SPEED 0.07f
 
@@ -42,6 +45,7 @@ typedef struct {
     int prev_x, prev_y;
     float vx, vy;
     uint32_t fall_time;
+    float damage_time;
     int health;
     action event;
 } enemy;
@@ -172,7 +176,7 @@ void on_mouse_event(GLFWwindow* window, int button, int action, int mod_keys) {
         mouse[button] = 0;
 }
 
-void update_player(int* old_x, int* old_y, float* vx, float* vy, uint32_t* fall_time, double dt, hitbox* hitboxes, size_t num_hitboxes, action event, float speed) {
+void update_player(int* old_x, int* old_y, float* vx, float* vy, uint32_t* fall_time, float* damage_time, double dt, hitbox* hitboxes, size_t num_hitboxes, action event, float speed) {
     float x = *old_x;
     float y = *old_y;
 
@@ -226,6 +230,8 @@ void update_player(int* old_x, int* old_y, float* vx, float* vy, uint32_t* fall_
 
     *old_x = (int)(x + 0.5);
     *old_y = (int)(y + 0.5);
+
+    *damage_time += 1000.f / 120.f * (float)dt;
 }
 
 int main() {
@@ -310,6 +316,7 @@ int main() {
     float player_vy = 0;
 
     uint32_t fall_time = 0;
+    float damage_time = PLAYER_DAMAGE_COOLDOWN;
 
     int player_health = 20;
 
@@ -317,17 +324,23 @@ int main() {
 
     size_t hitbox_num = 6;
     size_t sprite_num = 4;
+    size_t enemy_num = 2;
 
     hitbox* hitboxes = malloc(hitbox_num * sizeof(hitbox));
     sprite* sprites = malloc(sprite_num * sizeof(sprite));
-    particle_list particles = PARTICLE_LIST_EMPTY;
+
+    particle_list particle_l = PARTICLE_LIST_EMPTY;
+    particle_env particles = {&particle_l, .1f};
 
     sprite weapon_sprite = {0, 0, 16, 16, 0, {0, 48, 16, 16}};
     float weapon_sprite_rot_target = 0;
     float weapon_sprite_xoff_target = 0;
     float weapon_sprite_xoff = 0;
 
-    enemy e = {192, 72, 100, 72, 0.f, 0.f, 0u, 20};
+    enemy e = {192, 72, 100, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 20};
+
+    enemy* enemies = malloc(enemy_num * sizeof(enemy));
+
     quad e_quad = rect(e.x, e.y, 8, 8);
     vertex_info e_info;
 
@@ -408,8 +421,6 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
         
         glBindTexture(GL_TEXTURE_2D, tex0.tex);
-
-        draw_particles(particles, camera_x, camera_y);
         
         glUseProgram(prog);
         glUniform2f(cam_offset_uniform, camera_x / 640.f, camera_y / 360.f);
@@ -421,6 +432,8 @@ int main() {
             setOffsetModUniform(offset_mod_uniform, sprites[i].ss_info);
             draw_vertex_info(sprite_info[i]);
         }
+
+        draw_particles(*particles.particles, camera_x, camera_y);
 
         glUseProgram(player_prog);
         glUniform2f(cam_offset_uniform_p, camera_x / 640.f, camera_y / 360.f);
@@ -475,7 +488,7 @@ int main() {
                         e.x--;
                     else
                         e.x++;
-                    update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event, ENEMY_SPEED);
+                    update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, &e.damage_time, 120 * delta, hitboxes, hitbox_num, e.event, ENEMY_SPEED);
                 } while (touching((hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT}, hitboxes, hitbox_num));
             }
 
@@ -488,10 +501,10 @@ int main() {
             e.x++;
         }
 
-        update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, 120 * delta, hitboxes, hitbox_num, player_action, PLAYER_SPEED);
-        update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, 120 * delta, hitboxes, hitbox_num, e.event, ENEMY_SPEED);
+        update_player(&player_x, &player_y, &player_vx, &player_vy, &fall_time, &damage_time, 120 * delta, hitboxes, hitbox_num, player_action, PLAYER_SPEED);
+        update_player(&e.x, &e.y, &e.vx, &e.vy, &e.fall_time, &e.damage_time, 120 * delta, hitboxes, hitbox_num, e.event, ENEMY_SPEED);
 
-        update_particle_list(&particles, delta);
+        update_particle_list(particles, delta);
 
         hitbox weapon_hitbox = {
             (int)(player_x + 4. * sin(-weapon_sprite.rotation) + 8 + weapon_sprite_xoff),
@@ -499,16 +512,35 @@ int main() {
             8, 8
         };
 
-        // e.x = player_x + 4. * sin(-weapon_sprite.rotation) + 8 + weapon_sprite_xoff;
-        // e.y = player_y + 4. * cos(-weapon_sprite.rotation);
+        if (collide(weapon_hitbox, (hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT}) && e.damage_time >= ENEMY_DAMAGE_COOLDOWN && player_action & ATTACK) {
+            e.vy = 2.f;
 
-        if (collide(weapon_hitbox, (hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT})) {
+            if (weapon_sprite_xoff > 0)
+                e.vx = 2.f;
+            else
+                e.vx = -2.f;
+
             e.health--;
+            e.damage_time = 0.f;
 
-            particle p = square_particle(e.x, e.y, 4, (vec3){0.f, 0.f, 0.f}, 500);
-            p.vy = 2;
+            for (int i = 0; i < 10; i++) {
+                float r = (float)rand() / 16384.f - 1.f;
 
-            add_particle(&particles, p);
+                particle p = square_particle(e.x, e.y, 4, (vec3){0.f, 0.f, 0.f}, 500);
+                p.vx = 2.f * r;
+                p.vy = (float)rand() / 16384.f + 1.f;
+
+                add_particle(particles.particles, p);
+            }
+
+            
+        }
+
+        if (e.damage_time < ENEMY_DAMAGE_COOLDOWN) {
+            e.event = 0;
+        } else {
+            if (e.event == 0)
+                e.event |= RIGHT;
         }
 
         if (collide((hitbox){player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT}, (hitbox){e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT})) {

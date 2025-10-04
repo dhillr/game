@@ -3,13 +3,13 @@
 #define PARTICLE_LIST_EMPTY (particle_list){NULL, 0}
 
 typedef struct {
-    int x, y;
+    float x, y;
     float vx, vy;
     polygon shape;
     vertex_info info;
     glptr shader_prog;
 
-    int lifetime;
+    uint32_t lifetime;
     float time_elapsed;
 
     void* __list_prev;
@@ -21,6 +21,11 @@ typedef struct {
     size_t len;
 } particle_list;
 
+typedef struct {
+    particle_list* particles;
+    float gravity;
+} particle_env;
+
 particle square_particle(int x, int y, int size, vec3 col, int lifetime_milliseconds) {
     polygon shape = qtop((quad){x, y, x, y + size, x + size, y + size, x + size, y});
 
@@ -31,7 +36,7 @@ particle square_particle(int x, int y, int size, vec3 col, int lifetime_millisec
         .info=polygon_vertex_info(shape, GL_DYNAMIC_DRAW, 0, 0),
         .shader_prog=shader_program(
             "#version 330 core\nlayout(location=0)in vec2 pos;uniform vec2 a;void main(){gl_Position=vec4(pos-a,0,1);}",
-            "#version 330 core\nout vec4 c;void main(){c=vec4(1);}"
+            "#version 330 core\nout vec4 c;void main(){c=vec4(1,.5,0,1);}"
         ),
         .lifetime=lifetime_milliseconds,
         .time_elapsed=0.f,
@@ -50,31 +55,42 @@ particle* get_particle(particle_list particles, size_t index) {
 }
 
 void splice_particle_p(particle_list* particles, particle* p) {
-    if (p->__list_prev)
+    if (p->__list_prev) {
+        if (p->__list_next)
+            ((particle*)p->__list_next)->__list_prev = p->__list_prev;
         ((particle*)p->__list_prev)->__list_next = p->__list_next;
-    else
+    } else {
+        if (p->__list_next)
+            ((particle*)p->__list_next)->__list_prev = NULL;
         particles->head = p->__list_next;
+    }
 
     particles->len--;
+
+    free(p);
 }
 
-void update_particle_list(particle_list* particles, float dt) {
-    if (particles->len < 1)
+void update_particle_list(particle_env env, float dt) {
+    if (env.particles->len < 1)
         return;
 
-    particle* p = particles->head;
+    particle p_ = {.__list_next=env.particles->head};
+
+    particle* p = &p_;
     particle* next = p->__list_next;
 
     while (next) {
         p = p->__list_next;
         next = p->__list_next;
-        
-        p->x += (int)(p->vx + 0.5);
-        p->y += (int)(p->vy + 0.5);
+
+        p->vy -= env.gravity;
+
+        p->x += p->vx;
+        p->y += p->vy;
 
         for (int i = 0; i < p->shape.numPoints; i++) {
-            p->shape.points[i].x += (int)(p->vx + 0.5);
-            p->shape.points[i].y += (int)(p->vy + 0.5);
+            p->shape.points[i].x += p->vx;
+            p->shape.points[i].y += p->vy;
         }
 
         p->info = polygon_vertex_info(p->shape, GL_DYNAMIC_DRAW, 0, 0);
@@ -82,7 +98,7 @@ void update_particle_list(particle_list* particles, float dt) {
         p->time_elapsed += 1000.f * dt;
 
         if (p->time_elapsed > p->lifetime)
-            splice_particle_p(particles, p);
+            splice_particle_p(env.particles, p);
     }
 }
 
@@ -117,8 +133,8 @@ void draw_particles(particle_list particles, int cam_x, int cam_y) {
     for (int i = 0; i < particles.len; i++) {
         particle p = *get_particle(particles, i);
 
-        glUniform2f(0, cam_x / 640.f, cam_y / 360.f);
         glUseProgram(p.shader_prog);
+        glUniform2f(0, cam_x / 640.f, cam_y / 360.f);
         draw_vertex_info(p.info);
     }
 }
