@@ -50,7 +50,7 @@ typedef struct {
 
 typedef struct {
     glptr vao, vbo, ebo;
-    polygon p;
+    size_t numPoints;
 } vertex_info;
 
 typedef struct {
@@ -79,7 +79,7 @@ void print_shader_info_log(glptr shader) {
 
 void draw_vertex_info(vertex_info info) {
     glBindVertexArray(info.vao);
-    glDrawElements(GL_TRIANGLES, (info.p.numPoints - 2) * 3, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, (info.numPoints - 2) * 3, GL_UNSIGNED_INT, 0);
 }
 
 void draw_framebuffer_rect(framebuffer_info fb) {
@@ -280,7 +280,7 @@ vertex_info polygon_vertex_info(polygon p, GLenum mode, int textured, int center
         .vao=vao,
         .vbo=vbo,
         .ebo=ebo,
-        .p=p
+        .numPoints=p.numPoints
     };
 }
 

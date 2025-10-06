@@ -36,7 +36,7 @@ particle square_particle(int x, int y, int size, vec3 col, int lifetime_millisec
         .info=polygon_vertex_info(shape, GL_DYNAMIC_DRAW, 0, 0),
         .shader_prog=shader_program(
             "#version 330 core\nlayout(location=0)in vec2 pos;uniform vec2 a;void main(){gl_Position=vec4(pos-a,0,1);}",
-            "#version 330 core\nout vec4 c;void main(){c=vec4(1,.5,0,1);}"
+            "#version 330 core\nout vec4 c;void main(){c=vec4(1,.8,0,1);}"
         ),
         .lifetime=lifetime_milliseconds,
         .time_elapsed=0.f,
@@ -67,6 +67,8 @@ void splice_particle_p(particle_list* particles, particle* p) {
 
     particles->len--;
 
+
+    free(p->shape.points);
     free(p);
 }
 
@@ -102,6 +104,19 @@ void update_particle_list(particle_env env, float dt) {
     }
 }
 
+void free_particle_list(particle_list particles) {
+    particle* p = particles.head;
+
+    if (!p)
+        return;
+
+    while (p->__list_next) {
+        free(p->shape.points);
+        free(p);
+        p = p->__list_next;
+    }
+}
+
 void add_particle(particle_list* particles, particle p) {
     particle* node = particles->head;
 
@@ -130,11 +145,16 @@ void spawn_particles(particle_list* particles, particle* arr, size_t num_spawned
 }
 
 void draw_particles(particle_list particles, int cam_x, int cam_y) {
-    for (int i = 0; i < particles.len; i++) {
-        particle p = *get_particle(particles, i);
+    particle* p = particles.head;
 
-        glUseProgram(p.shader_prog);
+    if (!p)
+        return;
+
+    while (p->__list_next) {
+        glUseProgram(p->shader_prog);
         glUniform2f(0, cam_x / 640.f, cam_y / 360.f);
-        draw_vertex_info(p.info);
+        draw_vertex_info(p->info);
+
+        p = p->__list_next;
     }
 }
