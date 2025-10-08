@@ -4,6 +4,7 @@
 
 #include <wrapper.h>
 #include <particles.h>
+#include <point_alloc.h>
 
 #define PI 3.141592653589793238462643383279502884197169399375105820974944592
 
@@ -324,6 +325,8 @@ int main() {
     mouse = malloc(8);
     ss_size = SPRITESHEET_SIZE;
 
+    POINT_ALLOC_DEFAULT = (point_alloc){calloc(BLOCK_SIZE, sizeof(vec2)), 0, 1};
+
     for (int i = 0; i < 256; i++) {
         keys[i] = 0;
     }
@@ -373,6 +376,7 @@ int main() {
 
     tri t = {0, 0, GAME_WIDTH, 0, 0, 100};
     quad player_quad;
+    polygon player_p = qtop(rect(0, 0, 0, 0));
 
     vertex_info info = polygon_vertex_info(qtop(player_quad), GL_DYNAMIC_DRAW, 0, 0);
 
@@ -451,7 +455,7 @@ int main() {
 
         hitbox_info[i] = polygon_vertex_info(hitbox_p, GL_STATIC_DRAW, 1, 0);
 
-        free(hitbox_p.points);
+        // free(hitbox_p.points);
     }
 
     for (int i = 0; i < sprite_num; i++) {
@@ -461,7 +465,7 @@ int main() {
 
         sprite_info[i] = polygon_vertex_info(sprite_p, GL_STATIC_DRAW, 1, 0);
 
-        free(sprite_p.points);
+        // free(sprite_p.points);
     }
 
     polygon weapon_sprite_p;
@@ -479,6 +483,8 @@ int main() {
     glptr is_enemy_uniform_p = glGetUniformLocation(player_prog, "is_enemy");
 
     while (!glfwWindowShouldClose(window)) {
+        printf("0x%lx\n", POINT_ALLOC_DEFAULT.block);
+
         current_time = glfwGetTime();
         delta = current_time - prev_time;
         fps = 1.f / delta;
@@ -566,8 +572,9 @@ int main() {
         // printf("%f\n", fps);
 
         update_player_quad(&player_quad, player_x, player_y, prev_x, prev_y, player_vx);
+        quad_polygon(player_p, player_quad);
 
-        info = polygon_vertex_info(qtop(player_quad), GL_DYNAMIC_DRAW, 0, 0);
+        info = polygon_vertex_info(player_p, GL_DYNAMIC_DRAW, 0, 0);
 
         draw_vertex_info(info);
 
@@ -576,7 +583,11 @@ int main() {
             quad e_quad = rect(e.x, e.y, PLAYER_WIDTH, PLAYER_HEIGHT);
 
             update_player_quad(&e_quad, e.x, e.y, e.prev_x, e.prev_y, e.vx);
-            vertex_info e_info = polygon_vertex_info(qtop(e_quad), GL_DYNAMIC_DRAW, 0, 0);
+
+            polygon e_p = qtop(e_quad);
+            
+            vertex_info e_info = polygon_vertex_info(e_p, GL_DYNAMIC_DRAW, 0, 0);
+            free_p(e_p);
 
             glUniform1i(is_enemy_uniform_p, 1);
             draw_vertex_info(e_info);
@@ -603,6 +614,8 @@ int main() {
         });
 
         weapon_sprite_info = polygon_vertex_info(weapon_sprite_p, GL_DYNAMIC_DRAW, 1, 1);
+
+        free_p(weapon_sprite_p);
 
         if (player_action & ATTACK) {
             if (player_vx > 0) {
@@ -653,8 +666,10 @@ int main() {
     free(hitbox_ss_info);
     free(sprites);
     free(sprite_info);
+
+    free(POINT_ALLOC_DEFAULT.block);
     
-    free(weapon_sprite_p.points);
+    // free(weapon_sprite_p.points);
 
     free_particle_list(*particles.particles);
 

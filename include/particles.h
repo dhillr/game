@@ -67,8 +67,6 @@ void splice_particle_p(particle_list* particles, particle* p) {
 
     particles->len--;
 
-
-    free(p->shape.points);
     free(p);
 }
 
@@ -111,7 +109,6 @@ void free_particle_list(particle_list particles) {
         return;
 
     while (p->__list_next) {
-        free(p->shape.points);
         free(p);
         p = p->__list_next;
     }

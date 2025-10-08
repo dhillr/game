@@ -6,6 +6,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stb/stb_image.h>
+#include <point_alloc.h>
 
 #define min(a, b) a < b ? a : b
 #define max(a, b) a > b ? a : b
@@ -21,14 +22,6 @@ typedef struct {
     int x, y;
     int width, height;
 } spritesheet_info;
-
-typedef struct {
-    float x, y;
-} vec2;
-
-typedef struct {
-    float x, y, z;
-} vec3;
 
 typedef struct {
     vec2* points;
@@ -141,17 +134,36 @@ polygon ttop(tri t) {
 }
 
 polygon qtop(quad q) {
+    vec2 p1 = {q.x1, q.y1};
+    vec2 p2 = {q.x2, q.y2};
+    vec2 p3 = {q.x3, q.y3};
+    vec2 p4 = {q.x4, q.y4};
+
+    p1.__block_index = alloc_point(p1);
+    p2.__block_index = alloc_point(p2);
+    p3.__block_index = alloc_point(p3);
+    p4.__block_index = alloc_point(p4);
+
     polygon res = (polygon){
-        .points=malloc(4 * sizeof(vec2)),
+        .points=POINT_ALLOC_DEFAULT.block + p1.__block_index,
         .numPoints=4
     };
 
-    res.points[0] = (vec2){q.x1, q.y1};
-    res.points[1] = (vec2){q.x2, q.y2};
-    res.points[2] = (vec2){q.x3, q.y3};
-    res.points[3] = (vec2){q.x4, q.y4};
-
     return res;
+}
+
+void free_p(polygon p) {
+    remove_points(p.points[0].__block_index, p.points[p.numPoints-1].__block_index);
+}
+
+void quad_polygon(polygon p, quad q) {
+    if (p.numPoints != 4)
+        return;
+
+    p.points[0] = (vec2){q.x1, q.y1};
+    p.points[1] = (vec2){q.x2, q.y2};
+    p.points[2] = (vec2){q.x3, q.y3};
+    p.points[3] = (vec2){q.x4, q.y4};
 }
 
 float get_width(polygon p) {
