@@ -49,7 +49,11 @@ void remove_points(uint32_t from, uint32_t to) {
     memcpy(POINT_ALLOC_DEFAULT.block, first_block, first_block_size * sizeof(vec2));
     memcpy(POINT_ALLOC_DEFAULT.block + from, last_block, last_block_size * sizeof(vec2));
 
-    POINT_ALLOC_DEFAULT.index--;
+    POINT_ALLOC_DEFAULT.index -= to - from;
+
+    // for (int i = from; i < POINT_ALLOC_DEFAULT.index; i++) {
+    //     POINT_ALLOC_DEFAULT.block[i].__block_index--;
+    // }
 
     free(first_block);
     free(last_block);
