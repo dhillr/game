@@ -25,6 +25,7 @@ typedef struct {
 
 typedef struct {
     vec2* points;
+    uint32_t index;
     size_t numPoints;
 } polygon;
 
@@ -123,6 +124,7 @@ texture create_texture(char* filepath, glptr prog) {
 polygon ttop(tri t) {
     polygon res = (polygon){
         .points=malloc(3 * sizeof(vec2)),
+        .index=0,
         .numPoints=3
     };
 
@@ -134,18 +136,16 @@ polygon ttop(tri t) {
 }
 
 polygon qtop(quad q) {
-    vec2 p1 = {q.x1, q.y1};
-    vec2 p2 = {q.x2, q.y2};
-    vec2 p3 = {q.x3, q.y3};
-    vec2 p4 = {q.x4, q.y4};
+    vec2* points = malloc(4 * sizeof(vec2));
 
-    p1.__block_index = alloc_point(p1);
-    p2.__block_index = alloc_point(p2);
-    p3.__block_index = alloc_point(p3);
-    p4.__block_index = alloc_point(p4);
+    points[0] = (vec2){q.x1, q.y1};
+    points[1] = (vec2){q.x2, q.y2};
+    points[2] = (vec2){q.x3, q.y3};
+    points[3] = (vec2){q.x4, q.y4};
 
     polygon res = (polygon){
-        .points=POINT_ALLOC_DEFAULT.block + p1.__block_index,
+        .points=points,
+        .index=alloc_points(points),
         .numPoints=4
     };
 
@@ -153,7 +153,7 @@ polygon qtop(quad q) {
 }
 
 void free_p(polygon p) {
-    remove_points(p.points[0].__block_index, p.points[p.numPoints-1].__block_index);
+    remove_point(p.index);
 }
 
 void quad_polygon(polygon p, quad q) {

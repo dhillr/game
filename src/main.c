@@ -269,6 +269,7 @@ void walk(enemy* e, hitbox* hitboxes, size_t hitbox_num, double dt) {
                     e->x--;
                 else
                     e->x++;
+                
                 update_player(&(e->x), &(e->y), &(e->vx), &(e->vy), &(e->fall_time), &(e->damage_time), 120 * dt, hitboxes, hitbox_num, e->event, ENEMY_SPEED);
             } while (touching((hitbox){e->x, e->y, PLAYER_WIDTH, PLAYER_HEIGHT}, hitboxes, hitbox_num));
         }
@@ -314,6 +315,26 @@ void attack_response(enemy* e, action player_event, hitbox weapon_hitbox, char a
     }
 }
 
+void remove_enemy(enemy* enemies, size_t enemy_num, uint32_t index) {
+    int first_block_size = index;
+    int last_block_size = enemy_num - index - 1;
+
+    vec2* first_block = malloc(first_block_size * sizeof(vec2*));
+    vec2* last_block = malloc(last_block_size * sizeof(vec2*));
+
+    memcpy(first_block, enemies, first_block_size * sizeof(vec2*));
+    memcpy(last_block, enemies + index + 1, last_block_size * sizeof(vec2*));
+
+    memset(enemies, 0, enemy_num * sizeof(vec2*));
+
+    memcpy(enemies, first_block, first_block_size * sizeof(vec2*));
+    memcpy(enemies + index, last_block, last_block_size * sizeof(vec2*));
+
+
+    free(first_block);
+    free(last_block);
+}
+
 int main() {
     const char* tri_vert_shader = load_shader("src/shaders/vert_basic.glsl"); 
     const char* tri_frag_shader = load_shader("src/shaders/frag_basic.glsl");
@@ -325,7 +346,7 @@ int main() {
     mouse = malloc(8);
     ss_size = SPRITESHEET_SIZE;
 
-    POINT_ALLOC_DEFAULT = (point_alloc){calloc(BLOCK_SIZE, sizeof(vec2)), 0, 1};
+    POINT_ALLOC_DEFAULT = (point_alloc){calloc(BLOCK_SIZE, sizeof(vec2*)), 0, 1};
 
     for (int i = 0; i < 256; i++) {
         keys[i] = 0;
@@ -421,8 +442,8 @@ int main() {
     float weapon_sprite_xoff = 0;
 
     enemy* enemies = malloc(enemy_num * sizeof(enemy));
-    enemies[0] = (enemy){192, 72, 192, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 20, RIGHT};
-    enemies[1] = (enemy){300, 72, 300, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 20, LEFT};
+    enemies[0] = (enemy){192, 72, 192, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 10, RIGHT};
+    enemies[1] = (enemy){300, 72, 300, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 10, LEFT};
 
     hitboxes[0] = (hitbox){0, 60, 1200, 12, 1};
     hitboxes[1] = (hitbox){0, 52, 1200, 16, 1};
@@ -483,8 +504,6 @@ int main() {
     glptr is_enemy_uniform_p = glGetUniformLocation(player_prog, "is_enemy");
 
     while (!glfwWindowShouldClose(window)) {
-        printf("0x%lx\n", POINT_ALLOC_DEFAULT.block);
-
         current_time = glfwGetTime();
         delta = current_time - prev_time;
         fps = 1.f / delta;
@@ -554,6 +573,11 @@ int main() {
 
             walk(e, hitboxes, hitbox_num, delta);
             attack_response(e, player_action, weapon_hitbox, weapon_sprite_xoff > 0 ? RIGHT : LEFT, particles);
+
+            if (e->health <= 0) {
+                remove_enemy(enemies, enemy_num, i);
+                enemy_num--;
+            }
 
             update_player(&e->x, &e->y, &e->vx, &e->vy, &e->fall_time, &e->damage_time, 120 * delta, hitboxes, hitbox_num, e->event, ENEMY_SPEED);
 
@@ -666,6 +690,11 @@ int main() {
     free(hitbox_ss_info);
     free(sprites);
     free(sprite_info);
+
+    for (int i = 0; i < POINT_ALLOC_DEFAULT.index; i++) {
+        if (POINT_ALLOC_DEFAULT.block[i])
+            free(POINT_ALLOC_DEFAULT.block[i]);
+    }
 
     free(POINT_ALLOC_DEFAULT.block);
     

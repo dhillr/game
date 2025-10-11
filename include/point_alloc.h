@@ -14,15 +14,15 @@ typedef struct {
 } vec3;
 
 typedef struct {
-    vec2* block;
+    vec2** block;
     uint32_t index, block_size;
 } point_alloc;
 
 point_alloc POINT_ALLOC_DEFAULT;
 
-uint32_t alloc_point(vec2 p) {
+uint32_t alloc_points(vec2* p) {
     if (POINT_ALLOC_DEFAULT.index >= POINT_ALLOC_DEFAULT.block_size) {
-        POINT_ALLOC_DEFAULT.block = realloc(POINT_ALLOC_DEFAULT.block, POINT_ALLOC_DEFAULT.block_size + BLOCK_SIZE);
+        POINT_ALLOC_DEFAULT.block = realloc(POINT_ALLOC_DEFAULT.block, (POINT_ALLOC_DEFAULT.block_size + BLOCK_SIZE) * sizeof(vec2*));
         POINT_ALLOC_DEFAULT.block_size += BLOCK_SIZE;
     }
 
@@ -36,31 +36,28 @@ void remove_points(uint32_t from, uint32_t to) {
     int first_block_size = from;
     int last_block_size = POINT_ALLOC_DEFAULT.block_size - to - 1;
 
-    vec2* first_block = malloc(first_block_size * sizeof(vec2));
-    vec2* last_block = malloc(last_block_size * sizeof(vec2));
+    vec2* first_block = malloc(first_block_size * sizeof(vec2*));
+    vec2* last_block = malloc(last_block_size * sizeof(vec2*));
 
-    memcpy(first_block, POINT_ALLOC_DEFAULT.block, first_block_size * sizeof(vec2));
-    memcpy(last_block, POINT_ALLOC_DEFAULT.block + to + 1, last_block_size * sizeof(vec2));
+    memcpy(first_block, POINT_ALLOC_DEFAULT.block, first_block_size * sizeof(vec2*));
+    memcpy(last_block, POINT_ALLOC_DEFAULT.block + to + 1, last_block_size * sizeof(vec2*));
 
     // free(POINT_ALLOC_DEFAULT.block);
     // POINT_ALLOC_DEFAULT.block = calloc(POINT_ALLOC_DEFAULT.block_size, sizeof(vec2));
-    memset(POINT_ALLOC_DEFAULT.block, 0, POINT_ALLOC_DEFAULT.block_size * sizeof(vec2));
+    memset(POINT_ALLOC_DEFAULT.block, 0, POINT_ALLOC_DEFAULT.block_size * sizeof(vec2*));
 
-    memcpy(POINT_ALLOC_DEFAULT.block, first_block, first_block_size * sizeof(vec2));
-    memcpy(POINT_ALLOC_DEFAULT.block + from, last_block, last_block_size * sizeof(vec2));
+    memcpy(POINT_ALLOC_DEFAULT.block, first_block, first_block_size * sizeof(vec2*));
+    memcpy(POINT_ALLOC_DEFAULT.block + from, last_block, last_block_size * sizeof(vec2*));
 
-    POINT_ALLOC_DEFAULT.index -= to - from;
-
-    // for (int i = from; i < POINT_ALLOC_DEFAULT.index; i++) {
-    //     POINT_ALLOC_DEFAULT.block[i].__block_index--;
-    // }
+    POINT_ALLOC_DEFAULT.index -= to - from + 1;
 
     free(first_block);
     free(last_block);
 }
 
 void remove_point(uint32_t index) {
-    remove_points(index, index);
+    // remove_points(index, index);
+    POINT_ALLOC_DEFAULT.block[index] = NULL;
 }
 
 #endif
