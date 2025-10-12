@@ -319,17 +319,16 @@ void remove_enemy(enemy* enemies, size_t enemy_num, uint32_t index) {
     int first_block_size = index;
     int last_block_size = enemy_num - index - 1;
 
-    vec2* first_block = malloc(first_block_size * sizeof(vec2*));
-    vec2* last_block = malloc(last_block_size * sizeof(vec2*));
+    enemy* first_block = malloc(first_block_size * sizeof(enemy));
+    enemy* last_block = malloc(last_block_size * sizeof(enemy));
 
-    memcpy(first_block, enemies, first_block_size * sizeof(vec2*));
-    memcpy(last_block, enemies + index + 1, last_block_size * sizeof(vec2*));
+    memcpy(first_block, enemies, first_block_size * sizeof(enemy));
+    memcpy(last_block, enemies + index + 1, last_block_size * sizeof(enemy));
 
-    memset(enemies, 0, enemy_num * sizeof(vec2*));
+    memset(enemies, 0, enemy_num * sizeof(enemy));
 
-    memcpy(enemies, first_block, first_block_size * sizeof(vec2*));
-    memcpy(enemies + index, last_block, last_block_size * sizeof(vec2*));
-
+    memcpy(enemies, first_block, first_block_size * sizeof(enemy));
+    memcpy(enemies + index, last_block, last_block_size * sizeof(enemy));
 
     free(first_block);
     free(last_block);
@@ -581,7 +580,15 @@ int main() {
 
             update_player(&e->x, &e->y, &e->vx, &e->vy, &e->fall_time, &e->damage_time, 120 * delta, hitboxes, hitbox_num, e->event, ENEMY_SPEED);
 
-            if (collide((hitbox){player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT}, (hitbox){e->x, e->y, PLAYER_WIDTH, PLAYER_HEIGHT})) {
+            if (collide((hitbox){player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT}, (hitbox){e->x, e->y, PLAYER_WIDTH, PLAYER_HEIGHT}) && damage_time >= PLAYER_DAMAGE_COOLDOWN) {
+                player_vy = 2.f;
+
+                if (e->vx > 0.f)
+                    player_vx = 2.f;
+                else
+                    player_vx = -2.f;
+
+                damage_time = 0;
                 player_health--;
             }
         }
@@ -590,8 +597,8 @@ int main() {
         
         update_particle_list(particles, delta);
 
-        // if (player_health < 0)
-        //     break;
+        if (player_health < 0)
+            break;
 
         // printf("%f\n", fps);
 
