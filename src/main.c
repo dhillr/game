@@ -340,6 +340,7 @@ int main() {
     const char* framebuffer_vert_shader = load_shader("src/shaders/vert_framebuffer.glsl"); 
     const char* framebuffer_frag_shader = load_shader("src/shaders/frag_framebuffer.glsl");
     const char* player_frag_shader = load_shader("src/shaders/frag_player.glsl");
+    const char* ui_frag_shader = load_shader("src/shaders/frag_ui.glsl");
 
     keys = malloc(256);
     mouse = malloc(8);
@@ -393,6 +394,7 @@ int main() {
     glptr prog = shader_program(tri_vert_shader, tri_frag_shader);
     glptr player_prog = shader_program(tri_vert_shader, player_frag_shader);
     glptr framebuffer_prog = shader_program(framebuffer_vert_shader, framebuffer_frag_shader);
+    glptr ui_prog = shader_program(framebuffer_vert_shader, ui_frag_shader);
 
     tri t = {0, 0, GAME_WIDTH, 0, 0, 100};
     quad player_quad;
@@ -489,6 +491,8 @@ int main() {
     }
 
     polygon weapon_sprite_p;
+    polygon health_bar_p = qtop(rect(3, 172, 42, 5));
+    polygon health_amount_p = qtop(rect(30, 30, 20, 10));
 
     vertex_info weapon_sprite_info;
 
@@ -501,6 +505,8 @@ int main() {
     glptr stretch_uniform = glGetUniformLocation(prog, "stretch");
     glptr stretch_uniform_p = glGetUniformLocation(player_prog, "stretch");
     glptr is_enemy_uniform_p = glGetUniformLocation(player_prog, "is_enemy");
+
+    glptr color_uniform = glGetUniformLocation(ui_prog, "color");
 
     while (!glfwWindowShouldClose(window)) {
         current_time = glfwGetTime();
@@ -669,6 +675,16 @@ int main() {
         glUniform1f(stretch_uniform, 16.f / 9.f);
 
         draw_vertex_info(weapon_sprite_info);
+
+        free_p(health_amount_p);
+        health_amount_p = qtop(rect(4, 173, player_health * 2, 3));
+
+        glUseProgram(ui_prog);
+        glUniform3f(color_uniform, .2f, 0.f, 0.f);
+        draw_vertex_info(polygon_vertex_info(health_bar_p, GL_DYNAMIC_DRAW, 0, 0));
+
+        glUniform3f(color_uniform, 1.f, 0.f, 0.f);
+        draw_vertex_info(polygon_vertex_info(health_amount_p, GL_DYNAMIC_DRAW, 0, 0));
 
         draw_framebuffer_rect(fb);
         glfwSwapBuffers(window);
