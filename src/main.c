@@ -612,6 +612,9 @@ int main() {
         if (player_health < 0)
             break;
 
+        if (player_x > 700)
+            break; // win logic
+
         // printf("%f\n", fps);
 
         update_player_quad(&player_quad, player_x, player_y, prev_x, prev_y, player_vx);
