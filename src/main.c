@@ -612,8 +612,44 @@ int main() {
         if (player_health < 0)
             break;
 
-        if (player_x > 700)
-            break; // win logic
+        if (player_x > 700) {
+            // temp win logic
+            hitbox_num = 2;
+
+            camera_x = 0;
+            camera_y = 0;
+
+            player_x = 0;
+            player_y = 72;
+
+            player_vx = 0;
+            player_vy = 0;
+
+            fall_time = 0;
+            damage_time = PLAYER_DAMAGE_COOLDOWN;
+
+            player_health = 20;
+
+            player_action = 0;
+
+            free(hitboxes);
+            free(hitbox_ss_info);
+
+            hitboxes = malloc(2 * sizeof(hitbox));
+            hitboxes[0] = (hitbox){0, 60, 600, 12, 1};
+            hitboxes[1] = (hitbox){0, 52, 600, 16, 1};
+            
+            hitbox_ss_info = malloc(2 * sizeof(spritesheet_info));
+
+            hitbox_ss_info[0] = (spritesheet_info){0, 0, 16, 16};
+            hitbox_ss_info[1] = (spritesheet_info){16, 0, 20, 16};
+
+            for (int i = 0; i < 2; i++) {
+                hitbox h = hitboxes[i];
+                polygon hitbox_p = qtop(rect(h.x, h.y, h.width, h.height));
+                hitbox_info[i] = polygon_vertex_info(hitbox_p, GL_STATIC_DRAW, 1, 0);
+            }
+        }
 
         // printf("%f\n", fps);
 
