@@ -615,6 +615,7 @@ int main() {
         if (player_x > 700) {
             // temp win logic
             hitbox_num = 2;
+            enemy_num = 0;
 
             camera_x = 0;
             camera_y = 0;
@@ -633,6 +634,7 @@ int main() {
             player_action = 0;
 
             free(hitboxes);
+            free(enemies);
             free(hitbox_ss_info);
 
             hitboxes = malloc(2 * sizeof(hitbox));
