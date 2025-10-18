@@ -51,6 +51,14 @@ typedef struct {
     action event;
 } enemy;
 
+typedef struct {
+    hitbox* hitboxes;
+    spritesheet_info* hitbox_ss_info;
+    sprite* sprites;
+    enemy* enemies;
+    size_t hitbox_num, sprite_num, enemy_num;
+} level;
+
 int collide(hitbox a, hitbox b) {
     return (
         a.x < b.x + b.width &&
@@ -104,6 +112,120 @@ char* load_shader(char* filepath) {
     fclose(f);
 
     return buf;
+}
+
+void set_attr(float attributes[], void* item, int type) {
+    switch (type) {
+        case 0:
+            ((hitbox*)item)->x = attributes[0];
+            ((hitbox*)item)->y = attributes[1];
+            ((hitbox*)item)->width = attributes[2];
+            ((hitbox*)item)->height = attributes[3];
+            ((hitbox*)item)->is_ground = attributes[4];
+            break;
+        case 1:
+            ((spritesheet_info*)item)->x = attributes[0];
+            ((spritesheet_info*)item)->y = attributes[1];
+            ((spritesheet_info*)item)->width = attributes[2];
+            ((spritesheet_info*)item)->height = attributes[3];
+            break;
+        case 2:
+            ((sprite*)item)->x = attributes[0];
+            ((sprite*)item)->y = attributes[1];
+            ((sprite*)item)->width = attributes[2];
+            ((sprite*)item)->height = attributes[3];
+            ((sprite*)item)->rotation = attributes[4];
+            (&((sprite*)item)->ss_info)->x = attributes[5];
+            (&((sprite*)item)->ss_info)->y = attributes[6];
+            (&((sprite*)item)->ss_info)->width = attributes[7];
+            (&((sprite*)item)->ss_info)->height = attributes[8];
+            break;
+        case 3:
+            ((enemy*)item)->x = attributes[0];
+            ((enemy*)item)->y = attributes[1];
+            ((enemy*)item)->prev_x = attributes[2];
+            ((enemy*)item)->prev_y = attributes[3];
+            ((enemy*)item)->vx = attributes[4];
+            ((enemy*)item)->vy = attributes[5];
+            ((enemy*)item)->fall_time = attributes[6];
+            ((enemy*)item)->damage_time = attributes[7];
+            ((enemy*)item)->health = attributes[8];
+            ((enemy*)item)->event = attributes[9];
+            break;
+    }
+}
+
+level load_level(char* filepath) {
+    level res = {malloc(sizeof(hitbox)), malloc(sizeof(spritesheet_info)), malloc(sizeof(sprite)), malloc(sizeof(enemy)), 1, 1, 1};
+    int elem = 0, prop = 0, i = 0;
+    int max_props;
+
+    FILE* f = fopen(filepath, "rb");
+    char c;
+
+    char item[256];
+    int item_char = 0;
+
+    memset(item, 0, 256);
+
+    float props[10];
+
+    while ((c = fgetc(f)) != EOF) {
+        max_props = (int[]){5, 4, 9, 10}[elem];
+
+        if (c == ',' || c == '\n') {
+            if (prop >= max_props) {
+                if (elem == 0) {
+                    set_attr(props, res.hitboxes + i, elem);
+                } else if (elem == 1) {
+                    set_attr(props, res.hitbox_ss_info + i, elem);
+                    
+                } else if (elem == 2) {
+                    set_attr(props, res.sprites + i, elem);
+                } else if (elem == 3) {
+                    set_attr(props, res.enemies + i, elem);
+                }
+
+                
+
+                prop = 0;
+                memset(props, 0, 10 * sizeof(float));
+                i++;
+
+                if (elem == 0) {
+                    res.hitbox_num++;
+                    res.hitboxes = realloc(res.hitboxes, (i + 1) * sizeof(hitbox));
+                } else if (elem == 1) {
+                    res.hitbox_ss_info = realloc(res.hitbox_ss_info, (i + 1) * sizeof(spritesheet_info));
+                } else if (elem == 2) {
+                    res.sprite_num++;
+                    res.sprites = realloc(res.sprites, (i + 1) * sizeof(sprite));
+                } else if (elem == 3) {
+                    res.enemy_num++;
+                    res.enemies = realloc(res.enemies, (i + 1) * sizeof(enemy));
+                }
+            }
+            
+            props[prop] = atof(item);
+
+            memset(item, 0, 256);
+            item_char = 0;
+            prop++;
+        } else {
+            item[item_char] = c;
+            item_char++;
+        }
+
+        if (c == '\n') {
+            prop = 0;
+            i = 0;
+            elem++;
+        }
+
+        // printf("%c", c);
+    }
+
+    return res;
 }
 
 void setOffsetModUniform(glptr uniform, spritesheet_info ss_info) {
@@ -496,6 +618,12 @@ int main() {
         // free(sprite_p.points);
     }
 
+    level lvl = load_level("src/levels/1.lvl");
+
+    hitboxes = lvl.hitboxes;
+    sprites = lvl.sprites;
+    enemies = lvl.enemies;
+
     polygon weapon_sprite_p;
     polygon health_bar_p = qtop(rect(3, 172, 42, 5));
     polygon health_amount_p = qtop(rect(30, 30, 20, 10));
@@ -609,7 +737,7 @@ int main() {
         
         update_particle_list(particles, delta);
 
-        if (player_health < 0)
+        if (player_health <= 0)
             break;
 
         if (player_x > 700) {
@@ -760,6 +888,11 @@ int main() {
     free(hitbox_ss_info);
     free(sprites);
     free(sprite_info);
+
+    free(lvl.hitboxes);
+    free(lvl.hitbox_ss_info);
+    free(lvl.sprites);
+    free(lvl.enemies);
 
     for (int i = 0; i < POINT_ALLOC_DEFAULT.index; i++) {
         if (POINT_ALLOC_DEFAULT.block[i])
