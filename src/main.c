@@ -186,8 +186,6 @@ level load_level(char* filepath) {
                     set_attr(props, res.enemies + i, elem);
                 }
 
-                
-
                 prop = 0;
                 memset(props, 0, 10 * sizeof(float));
                 i++;
