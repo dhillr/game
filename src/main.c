@@ -176,17 +176,18 @@ level load_level(char* filepath) {
         if (c == ',' || c == '\n') {
             if (prop >= max_props) {
                 if (elem == 0) {
-                    set_attr(props, res.hitboxes + i, elem);
+                    set_attr(props, res.hitboxes + i, 0);
                 } else if (elem == 1) {
-                    set_attr(props, res.hitbox_ss_info + i, elem);
-                    
+                    set_attr(props, res.hitbox_ss_info + i, 1);
+                    printf("%d, %d, %d, %d\n", res.hitbox_ss_info[i].x, res.hitbox_ss_info[i].y, res.hitbox_ss_info[i].width, res.hitbox_ss_info[i].height);
                 } else if (elem == 2) {
-                    set_attr(props, res.sprites + i, elem);
+                    set_attr(props, res.sprites + i, 2);
                 } else if (elem == 3) {
-                    set_attr(props, res.enemies + i, elem);
+                    set_attr(props, res.enemies + i, 3);
                 }
 
                 prop = 0;
+
                 memset(props, 0, 10 * sizeof(float));
                 i++;
 
@@ -563,35 +564,45 @@ int main() {
     float weapon_sprite_xoff = 0;
 
     enemy* enemies = malloc(enemy_num * sizeof(enemy));
-    enemies[0] = (enemy){192, 72, 192, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 10, RIGHT};
-    enemies[1] = (enemy){300, 72, 300, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 10, LEFT};
+    // enemies[0] = (enemy){192, 72, 192, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 10, RIGHT};
+    // enemies[1] = (enemy){300, 72, 300, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 10, LEFT};
 
-    hitboxes[0] = (hitbox){0, 60, 600, 12, 1};
-    hitboxes[1] = (hitbox){0, 52, 600, 16, 1};
-    hitboxes[2] = (hitbox){0, 0, 600, 52, 1};
-    hitboxes[3] = (hitbox){128, 72, 16, 16};
-    hitboxes[4] = (hitbox){192, 88, 16, 16};
-    hitboxes[5] = (hitbox){256, 72, 16, 16};
-    hitboxes[6] = (hitbox){620, 52, 100, 12, 1};
-    hitboxes[7] = (hitbox){620, 44, 100, 16, 1};
-    hitboxes[8] = (hitbox){620, -8, 100, 52, 1};
+    // hitboxes[0] = (hitbox){0, 60, 600, 12, 1};
+    // hitboxes[1] = (hitbox){0, 52, 600, 16, 1};
+    // hitboxes[2] = (hitbox){0, 0, 600, 52, 1};
+    // hitboxes[3] = (hitbox){128, 72, 16, 16};
+    // hitboxes[4] = (hitbox){192, 88, 16, 16};
+    // hitboxes[5] = (hitbox){256, 72, 16, 16};
+    // hitboxes[6] = (hitbox){620, 52, 100, 12, 1};
+    // hitboxes[7] = (hitbox){620, 44, 100, 16, 1};
+    // hitboxes[8] = (hitbox){620, -8, 100, 52, 1};
 
-    sprites[0] = (sprite){256, 72, 344, 32, 0, {32, 16, 16, 32}};
-    sprites[1] = (sprite){240, 88, 16, 16, 0, {16, 16, 16, 16}};
-    sprites[2] = (sprite){240, 72, 16, 16, 0, {32, 32, 16, 16}};
-    sprites[3] = (sprite){224, 72, 16, 16, 0, {16, 32, 16, 16}};
+    // sprites[0] = (sprite){256, 72, 344, 32, 0, {32, 16, 16, 32}};
+    // sprites[1] = (sprite){240, 88, 16, 16, 0, {16, 16, 16, 16}};
+    // sprites[2] = (sprite){240, 72, 16, 16, 0, {32, 32, 16, 16}};
+    // sprites[3] = (sprite){224, 72, 16, 16, 0, {16, 32, 16, 16}};
 
     spritesheet_info* hitbox_ss_info = malloc(hitbox_num * sizeof(spritesheet_info));
 
-    hitbox_ss_info[0] = (spritesheet_info){0, 0, 16, 16};
-    hitbox_ss_info[1] = (spritesheet_info){16, 0, 20, 16};
-    hitbox_ss_info[2] = (spritesheet_info){40, 0, 20, 16};
-    hitbox_ss_info[3] = (spritesheet_info){0, 16, 16, 16};
-    hitbox_ss_info[4] = (spritesheet_info){0, 16, 16, 16};
-    hitbox_ss_info[5] = (spritesheet_info){0, 16, 16, 16};
-    hitbox_ss_info[6] = (spritesheet_info){0, 0, 16, 16};
-    hitbox_ss_info[7] = (spritesheet_info){16, 0, 20, 16};
-    hitbox_ss_info[8] = (spritesheet_info){40, 0, 20, 16};
+    // hitbox_ss_info[0] = (spritesheet_info){0, 0, 16, 16};
+    // hitbox_ss_info[1] = (spritesheet_info){16, 0, 20, 16};
+    // hitbox_ss_info[2] = (spritesheet_info){40, 0, 20, 16};
+    // hitbox_ss_info[3] = (spritesheet_info){0, 16, 16, 16};
+    // hitbox_ss_info[4] = (spritesheet_info){0, 16, 16, 16};
+    // hitbox_ss_info[5] = (spritesheet_info){0, 16, 16, 16};
+    // hitbox_ss_info[6] = (spritesheet_info){0, 0, 16, 16};
+    // hitbox_ss_info[7] = (spritesheet_info){16, 0, 20, 16};
+    // hitbox_ss_info[8] = (spritesheet_info){40, 0, 20, 16};
+
+    level lvl = load_level("src/levels/1.lvl");
+
+    hitboxes = lvl.hitboxes;
+    sprites = lvl.sprites;
+    enemies = lvl.enemies;
+
+    // hitbox_num = lvl.hitbox_num;
+    // sprite_num = lvl.sprite_num;
+    // enemy_num = lvl.enemy_num;
 
     vertex_info* hitbox_info = malloc(hitbox_num * sizeof(vertex_info));
     vertex_info* sprite_info = malloc(sprite_num * sizeof(vertex_info));
@@ -615,12 +626,6 @@ int main() {
 
         // free(sprite_p.points);
     }
-
-    level lvl = load_level("src/levels/1.lvl");
-
-    hitboxes = lvl.hitboxes;
-    sprites = lvl.sprites;
-    enemies = lvl.enemies;
 
     polygon weapon_sprite_p;
     polygon health_bar_p = qtop(rect(3, 172, 42, 5));
