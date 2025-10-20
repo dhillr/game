@@ -179,7 +179,6 @@ level load_level(char* filepath) {
                     set_attr(props, res.hitboxes + i, 0);
                 } else if (elem == 1) {
                     set_attr(props, res.hitbox_ss_info + i, 1);
-                    printf("%d, %d, %d, %d\n", res.hitbox_ss_info[i].x, res.hitbox_ss_info[i].y, res.hitbox_ss_info[i].width, res.hitbox_ss_info[i].height);
                 } else if (elem == 2) {
                     set_attr(props, res.sprites + i, 2);
                 } else if (elem == 3) {
@@ -552,8 +551,16 @@ int main() {
     size_t sprite_num = 4;
     size_t enemy_num = 2;
 
-    hitbox* hitboxes = malloc(hitbox_num * sizeof(hitbox));
-    sprite* sprites = malloc(sprite_num * sizeof(sprite));
+    level lvl = load_level("src/levels/1.lvl");
+
+    hitbox* hitboxes = lvl.hitboxes;
+    spritesheet_info* hitbox_ss_info = lvl.hitbox_ss_info;
+    sprite* sprites = lvl.sprites;
+    enemy* enemies = lvl.enemies;
+
+    // size_t hitbox_num = lvl.hitbox_num;
+    // size_t sprite_num = lvl.sprite_num;
+    // size_t enemy_num = lvl.enemy_num;
 
     particle_list particle_l = PARTICLE_LIST_EMPTY;
     particle_env particles = {&particle_l, .1f};
@@ -563,7 +570,6 @@ int main() {
     float weapon_sprite_xoff_target = 0;
     float weapon_sprite_xoff = 0;
 
-    enemy* enemies = malloc(enemy_num * sizeof(enemy));
     // enemies[0] = (enemy){192, 72, 192, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 10, RIGHT};
     // enemies[1] = (enemy){300, 72, 300, 72, 0.f, 0.f, 0u, ENEMY_DAMAGE_COOLDOWN, 10, LEFT};
 
@@ -582,8 +588,6 @@ int main() {
     // sprites[2] = (sprite){240, 72, 16, 16, 0, {32, 32, 16, 16}};
     // sprites[3] = (sprite){224, 72, 16, 16, 0, {16, 32, 16, 16}};
 
-    spritesheet_info* hitbox_ss_info = malloc(hitbox_num * sizeof(spritesheet_info));
-
     // hitbox_ss_info[0] = (spritesheet_info){0, 0, 16, 16};
     // hitbox_ss_info[1] = (spritesheet_info){16, 0, 20, 16};
     // hitbox_ss_info[2] = (spritesheet_info){40, 0, 20, 16};
@@ -593,16 +597,6 @@ int main() {
     // hitbox_ss_info[6] = (spritesheet_info){0, 0, 16, 16};
     // hitbox_ss_info[7] = (spritesheet_info){16, 0, 20, 16};
     // hitbox_ss_info[8] = (spritesheet_info){40, 0, 20, 16};
-
-    level lvl = load_level("src/levels/1.lvl");
-
-    hitboxes = lvl.hitboxes;
-    sprites = lvl.sprites;
-    enemies = lvl.enemies;
-
-    // hitbox_num = lvl.hitbox_num;
-    // sprite_num = lvl.sprite_num;
-    // enemy_num = lvl.enemy_num;
 
     vertex_info* hitbox_info = malloc(hitbox_num * sizeof(vertex_info));
     vertex_info* sprite_info = malloc(sprite_num * sizeof(vertex_info));
